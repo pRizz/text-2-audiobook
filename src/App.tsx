@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { TextInput } from './ui/components/TextInput'
+import { TextInput, gettysburgAddress } from './ui/components/TextInput'
 import { EngineSelector } from './ui/components/EngineSelector'
 import { VoiceSelector } from './ui/components/VoiceSelector'
 import { PreviewPlayer } from './ui/components/PreviewPlayer'
@@ -13,7 +13,7 @@ import { encodeToM4b, isM4bSupported } from './audio/m4bEncoder'
 import { parseChapters, Chapter } from './chapters/parseChapters'
 
 function App() {
-  const [text, setText] = useState('')
+  const [text, setText] = useState(gettysburgAddress.trim())
 
   // Engine state
   const [engines, setEngines] = useState<EngineInfo[]>([])
