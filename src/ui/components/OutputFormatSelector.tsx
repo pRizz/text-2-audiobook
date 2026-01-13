@@ -13,7 +13,7 @@ export function OutputFormatSelector({
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <HeadphoneIcon />
-        <h2 className="font-display font-semibold text-lg">Output Format</h2>
+        <h2 className="font-display font-semibold text-lg">Preferred Format</h2>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -48,6 +48,10 @@ export function OutputFormatSelector({
           )}
         </button>
       </div>
+
+      <p className="text-xs text-muted-foreground mt-2">
+        Both formats will be available for download after generation. This is your preferred format.
+      </p>
     </div>
   )
 }

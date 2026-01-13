@@ -16,6 +16,7 @@ interface OutputInfoProps {
   canDownload?: boolean
   m4bSupported?: boolean
   chapters?: Chapter[]
+  preferredFormat?: 'mp3' | 'm4b'
 }
 
 function formatBytes(bytes: number): string {
@@ -37,6 +38,7 @@ export function OutputInfo({
   canDownload = false,
   m4bSupported = false,
   chapters = [],
+  preferredFormat = 'mp3',
 }: OutputInfoProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -127,29 +129,39 @@ export function OutputInfo({
             <button
               onClick={onDownloadMp3}
               disabled={!canDownload || isBusy}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2.5 font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
                 canDownload && !isBusy
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? preferredFormat === 'mp3'
+                    ? 'bg-primary text-primary-foreground shadow-md hover:shadow-lg glow-effect hover:-translate-y-0.5 active:translate-y-0'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
+                  : 'bg-secondary text-muted-foreground cursor-not-allowed opacity-50'
               }`}
             >
               <DownloadIcon />
               {isEncodingMp3 ? 'Encoding...' : 'Download MP3'}
-              {mp3Blob && <span className="text-xs">({formatBytes(mp3Blob.size)})</span>}
+              {preferredFormat === 'mp3' && (
+                <span className="text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded">Preferred</span>
+              )}
+              {mp3Blob && <span className="text-xs opacity-80">({formatBytes(mp3Blob.size)})</span>}
             </button>
 
             <button
               onClick={onDownloadM4b}
               disabled={!canDownload || !m4bSupported || isBusy}
-              className={`px-4 py-2 font-medium rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2.5 font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
                 canDownload && m4bSupported && !isBusy
-                  ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? preferredFormat === 'm4b'
+                    ? 'bg-primary text-primary-foreground shadow-md hover:shadow-lg glow-effect hover:-translate-y-0.5 active:translate-y-0'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
+                  : 'bg-secondary text-muted-foreground cursor-not-allowed opacity-50'
               }`}
             >
               <DownloadIcon />
               {isEncodingM4b ? 'Encoding...' : 'Download M4B'}
-              {m4bBlob && <span className="text-xs">({formatBytes(m4bBlob.size)})</span>}
+              {preferredFormat === 'm4b' && (
+                <span className="text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded">Preferred</span>
+              )}
+              {m4bBlob && <span className="text-xs opacity-80">({formatBytes(m4bBlob.size)})</span>}
             </button>
           </div>
           {chapters.length > 1 && m4bSupported && (
@@ -177,15 +189,15 @@ export function OutputInfo({
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Generated Files</h4>
           <div className="flex flex-wrap gap-4">
             {mp3Blob && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-900/30 border border-green-600/50 rounded">
-                <span className="text-green-300">MP3</span>
-                <span className="text-gray-400">{formatBytes(mp3Blob.size)}</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded">
+                <span className="text-primary">MP3</span>
+                <span className="text-muted-foreground">{formatBytes(mp3Blob.size)}</span>
               </div>
             )}
             {m4bBlob && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-purple-900/30 border border-purple-600/50 rounded">
-                <span className="text-purple-300">M4B</span>
-                <span className="text-gray-400">{formatBytes(m4bBlob.size)}</span>
+              <div className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded">
+                <span className="text-primary">M4B</span>
+                <span className="text-muted-foreground">{formatBytes(m4bBlob.size)}</span>
               </div>
             )}
           </div>

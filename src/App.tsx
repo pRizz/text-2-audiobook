@@ -267,6 +267,7 @@ function App() {
                   canDownload={!!pcmAudio}
                   m4bSupported={m4bSupported}
                   chapters={chapters}
+                  preferredFormat={outputFormat}
                 />
               </div>
             )}
