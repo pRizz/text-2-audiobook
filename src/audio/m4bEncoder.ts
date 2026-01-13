@@ -1,6 +1,6 @@
 import { PcmAudio } from '../tts/engine'
 import { Chapter } from '../chapters/parseChapters'
-import { createFile, ISOFile } from 'mp4box'
+import { createFile } from 'mp4box'
 
 /**
  * M4B Encoder using WebCodecs AudioEncoder + mp4box.js
@@ -32,7 +32,7 @@ export async function isM4bSupported(): Promise<boolean> {
     // Check if AAC encoding is supported
     const config: AudioEncoderConfig = {
       codec: 'mp4a.40.2', // AAC-LC
-      sampleRate: 44100,
+      sampleRate: 48000,
       numberOfChannels: 1,
       bitrate: 128000,
     }
@@ -82,8 +82,8 @@ export async function encodeToM4b(
 
   onProgress(5)
 
-  // Step 1: Encode PCM to AAC using WebCodecs
-  const encodedChunks = await encodePcmToAac(audio, (p) => {
+  // Step 1: Encode PCM to AAC using WebCodecs (includes resampling if needed)
+  const { chunks: encodedChunks, processedAudio } = await encodePcmToAac(audio, (p) => {
     onProgress(5 + p * 0.6) // 5-65%
   })
 
@@ -92,7 +92,7 @@ export async function encodeToM4b(
   // Step 2: Mux AAC into MP4 container with chapters using mp4box.js
   const m4bBlob = await muxAacToM4b(
     encodedChunks,
-    audio,
+    processedAudio,
     chapters,
     (p) => {
       onProgress(65 + p * 0.35) // 65-100%
@@ -104,27 +104,98 @@ export async function encodeToM4b(
 }
 
 /**
+ * Resamples PCM audio to a target sample rate using Web Audio API
+ */
+async function resampleAudio(
+  audio: PcmAudio,
+  targetSampleRate: number
+): Promise<PcmAudio> {
+  if (audio.sampleRate === targetSampleRate) {
+    return audio
+  }
+
+  const audioContext = new OfflineAudioContext(
+    audio.channels,
+    Math.ceil((audio.samples.length / audio.channels) * (targetSampleRate / audio.sampleRate)),
+    targetSampleRate
+  )
+
+  // Create buffer from interleaved samples
+  const audioBuffer = audioContext.createBuffer(
+    audio.channels,
+    audio.samples.length / audio.channels,
+    audio.sampleRate
+  )
+
+  // Copy interleaved samples to planar format
+  for (let channel = 0; channel < audio.channels; channel++) {
+    const channelData = audioBuffer.getChannelData(channel)
+    for (let i = 0; i < channelData.length; i++) {
+      channelData[i] = audio.samples[i * audio.channels + channel]
+    }
+  }
+
+  // Create buffer source and render to target sample rate
+  const source = audioContext.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(audioContext.destination)
+  source.start(0)
+
+  const resampledBuffer = await audioContext.startRendering()
+
+  // Convert planar back to interleaved
+  const resampledSamples = new Float32Array(resampledBuffer.length * audio.channels)
+  for (let channel = 0; channel < audio.channels; channel++) {
+    const channelData = resampledBuffer.getChannelData(channel)
+    for (let i = 0; i < channelData.length; i++) {
+      resampledSamples[i * audio.channels + channel] = channelData[i]
+    }
+  }
+
+  return {
+    samples: resampledSamples,
+    sampleRate: targetSampleRate,
+    channels: audio.channels,
+  }
+}
+
+/**
  * Encodes PCM audio to AAC using WebCodecs AudioEncoder
+ * Resamples to 48000 Hz if necessary (AAC encoder only supports 44100 and 48000 Hz)
  */
 async function encodePcmToAac(
   audio: PcmAudio,
   onProgress: (percent: number) => void
-): Promise<EncodedChunk[]> {
+): Promise<{ chunks: EncodedChunk[]; processedAudio: PcmAudio }> {
+  // AAC encoder only supports 44100 and 48000 Hz
+  const targetSampleRate = 48000
+  let processedAudio = audio
+  let resamplingProgress = 0
+
+  // Resample if necessary
+  if (audio.sampleRate !== targetSampleRate && audio.sampleRate !== 48000) {
+    resamplingProgress = 10 // Reserve 10% for resampling
+    onProgress(0)
+    processedAudio = await resampleAudio(audio, targetSampleRate)
+    onProgress(resamplingProgress) // Resampling complete
+  }
+
   return new Promise((resolve, reject) => {
     const chunks: EncodedChunk[] = []
-    const totalDuration = audio.samples.length / audio.sampleRate / audio.channels
+    const totalDuration = processedAudio.samples.length / processedAudio.sampleRate / processedAudio.channels
     let lastTimestamp = 0
+    let isFlushing = false
 
     // Configure AudioEncoder for AAC
     const config: AudioEncoderConfig = {
       codec: 'mp4a.40.2', // AAC-LC
-      sampleRate: audio.sampleRate,
-      numberOfChannels: audio.channels,
+      sampleRate: processedAudio.sampleRate,
+      numberOfChannels: processedAudio.channels,
       bitrate: 128000,
     }
 
     const encoder = new AudioEncoder({
-      output: (chunk, metadata) => {
+      output: (chunk, _metadata) => {
         const data = new Uint8Array(chunk.byteLength)
         chunk.copyTo(data)
         
@@ -134,19 +205,22 @@ async function encodePcmToAac(
 
         chunks.push({
           timestamp: chunk.timestamp,
-          duration: duration || (1000000 / audio.sampleRate), // fallback to sample duration
+          duration: duration || (1000000 / processedAudio.sampleRate), // fallback to sample duration
           data,
           isKeyframe: chunk.type === 'key',
         })
 
         // Estimate progress based on encoded duration
+        // Adjust progress range: resamplingProgress-100% (resamplingProgress% is after resampling)
         if (chunk.timestamp > 0) {
           const encodedSeconds = chunk.timestamp / 1_000_000 // microseconds to seconds
-          const progress = Math.min(95, (encodedSeconds / totalDuration) * 100)
+          const encodingProgress = (encodedSeconds / totalDuration) * (100 - resamplingProgress)
+          const progress = Math.min(100, resamplingProgress + encodingProgress)
           onProgress(progress)
         }
       },
       error: (error) => {
+        isFlushing = true // Stop any pending encode operations
         reject(new Error(`AAC encoding failed: ${error.message}`))
       },
     })
@@ -154,29 +228,37 @@ async function encodePcmToAac(
     encoder.configure(config)
 
     // Process audio in chunks
-    const chunkSize = audio.sampleRate * audio.channels // 1 second chunks
+    const chunkSize = processedAudio.sampleRate * processedAudio.channels // 1 second chunks
     let offset = 0
     let sampleTimestamp = 0
 
     const processNextChunk = () => {
-      if (offset >= audio.samples.length) {
-        encoder.flush()
-          .then(() => {
-            onProgress(100)
-            resolve(chunks)
-          })
-          .catch(reject)
+      // Prevent encoding after flush has been called
+      if (isFlushing) {
         return
       }
 
-      const end = Math.min(offset + chunkSize, audio.samples.length)
-      const chunkSamples = audio.samples.slice(offset, end)
-      const frameCount = chunkSamples.length / audio.channels
+      if (offset >= processedAudio.samples.length) {
+        isFlushing = true
+        encoder.flush()
+          .then(() => {
+            onProgress(100)
+            resolve({ chunks, processedAudio })
+          })
+          .catch((error) => {
+            reject(error)
+          })
+        return
+      }
+
+      const end = Math.min(offset + chunkSize, processedAudio.samples.length)
+      const chunkSamples = processedAudio.samples.slice(offset, end)
+      const frameCount = chunkSamples.length / processedAudio.channels
 
       // Create AudioData from PCM samples
       // Note: AudioData expects planar format for multi-channel
       let audioDataBuffer: ArrayBuffer
-      if (audio.channels === 1) {
+      if (processedAudio.channels === 1) {
         audioDataBuffer = chunkSamples.buffer
       } else {
         // Convert interleaved to planar (not needed for mono, but for future stereo support)
@@ -185,12 +267,18 @@ async function encodePcmToAac(
 
       const audioData = new AudioData({
         format: 'f32-planar',
-        sampleRate: audio.sampleRate,
+        sampleRate: processedAudio.sampleRate,
         numberOfFrames: frameCount,
-        numberOfChannels: audio.channels,
+        numberOfChannels: processedAudio.channels,
         timestamp: sampleTimestamp * 1_000_000, // microseconds
         data: audioDataBuffer,
       })
+
+      // Check again before encoding (in case flush was called while we were preparing the data)
+      if (isFlushing) {
+        audioData.close()
+        return
+      }
 
       encoder.encode(audioData)
       audioData.close()
@@ -225,11 +313,11 @@ async function muxAacToM4b(
       const outputChunks: Uint8Array[] = []
 
       // Set up file event handlers
-      file.onReady = (info) => {
+      file.onReady = (_info) => {
         onProgress(20)
       }
 
-      file.onSegment = (id, user, buffer) => {
+      file.onSegment = (_id, _user, buffer) => {
         // Convert ArrayBuffer to Uint8Array if needed
         const uint8Buffer = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
         outputChunks.push(uint8Buffer)
@@ -245,8 +333,10 @@ async function muxAacToM4b(
       const timescale = audio.sampleRate // Use sample rate as timescale
 
       // Create AAC decoder config (ESDS box)
-      // AAC-LC, 44.1kHz, mono: 0x11 0x90
-      const aacConfig = new Uint8Array([0x11, 0x90])
+      // AAC-LC, 48kHz, mono
+      // Note: mp4box.js should handle ESDS generation automatically based on track metadata,
+      // but we provide a basic config. For 48kHz: 0x13 0x90 (object type 2, sample rate 3, mono)
+      const aacConfig = new Uint8Array([0x13, 0x90])
 
       // Add audio track
       // Note: mp4box.js API for creating tracks from scratch is limited
@@ -273,7 +363,12 @@ async function muxAacToM4b(
         const durationInTimescale = Math.floor(duration / (1_000_000 / timescale))
         const dtsInTimescale = Math.floor(chunk.timestamp / (1_000_000 / timescale))
 
-        file.addSample(trackId, chunk.data, {
+        // Ensure we have a proper ArrayBuffer by creating a copy with a new ArrayBuffer
+        const buffer = new ArrayBuffer(chunk.data.length)
+        const sampleData = new Uint8Array(buffer)
+        sampleData.set(chunk.data)
+
+        file.addSample(trackId, sampleData, {
           duration: durationInTimescale,
           dts: dtsInTimescale,
           cts: dtsInTimescale,
