@@ -4,7 +4,10 @@ import { TtsEngine, Voice, TtsOptions, PcmAudio, Progress } from '../engine'
 // Falls back to a simple tone-based placeholder if WASM loading fails
 
 export class PiperTtsEngine implements TtsEngine {
-  name = 'Piper TTS (WASM)'
+  id = 'piper'
+  name = 'Piper TTS (Demo)'
+  description = 'Neural TTS placeholder - generates tone-based audio for testing'
+  supportsExport = true
   private isInitialized = false
   private _useWebGpu = false
 

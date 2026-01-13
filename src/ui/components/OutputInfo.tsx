@@ -1,11 +1,12 @@
-import { PcmAudio, EngineMode } from '../../tts/engine'
+import { PcmAudio } from '../../tts/engine'
 import { formatDuration, getDurationSeconds } from '../../audio/pcm'
 
 interface OutputInfoProps {
   pcmAudio: PcmAudio | null
   mp3Blob: Blob | null
   m4bBlob: Blob | null
-  engineMode: EngineMode
+  engineName?: string
+  supportsExport: boolean
 }
 
 function formatBytes(bytes: number): string {
@@ -14,7 +15,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function OutputInfo({ pcmAudio, mp3Blob, m4bBlob, engineMode }: OutputInfoProps) {
+export function OutputInfo({ pcmAudio, mp3Blob, m4bBlob, engineName, supportsExport }: OutputInfoProps) {
   if (!pcmAudio && !mp3Blob && !m4bBlob) {
     return null
   }
@@ -46,13 +47,14 @@ export function OutputInfo({ pcmAudio, mp3Blob, m4bBlob, engineMode }: OutputInf
             </div>
 
             <div className="p-3 bg-gray-700 rounded">
-              <div className="text-gray-400">Mode</div>
+              <div className="text-gray-400">Engine</div>
               <div
-                className={`text-lg font-medium ${
-                  engineMode === 'full' ? 'text-green-400' : 'text-yellow-400'
+                className={`text-lg font-medium truncate ${
+                  supportsExport ? 'text-green-400' : 'text-yellow-400'
                 }`}
+                title={engineName}
               >
-                {engineMode === 'full' ? 'Full Export' : 'Lite'}
+                {engineName || 'Unknown'}
               </div>
             </div>
           </>

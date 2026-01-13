@@ -1,36 +1,79 @@
-import { TtsEngine, EngineMode } from './engine'
+import { TtsEngine, EngineInfo } from './engine'
 import { PiperTtsEngine } from './fullExportEngine/piperEngine'
+import { SamTtsEngine } from './fullExportEngine/samEngine'
+import { MeSpeakTtsEngine } from './fullExportEngine/meSpeakEngine'
 import { WebSpeechEngine } from './liteSpeechEngine/webSpeechEngine'
 
-let cachedEngine: TtsEngine | null = null
-let cachedMode: EngineMode = 'unknown'
+// All available TTS engines
+const allEngines: TtsEngine[] = [
+  new SamTtsEngine(),
+  new MeSpeakTtsEngine(),
+  new PiperTtsEngine(),
+  new WebSpeechEngine(),
+]
 
-export async function getAvailableEngine(): Promise<TtsEngine | null> {
-  if (cachedEngine) return cachedEngine
+// Cache for engine availability
+const engineAvailability: Map<string, boolean> = new Map()
 
-  // Try full export engine first (Piper WASM)
-  const piperEngine = new PiperTtsEngine()
-  if (await piperEngine.isAvailable()) {
-    cachedEngine = piperEngine
-    cachedMode = 'full'
-    return piperEngine
+export async function getAvailableEngines(): Promise<EngineInfo[]> {
+  const results: EngineInfo[] = []
+
+  for (const engine of allEngines) {
+    let available = engineAvailability.get(engine.id)
+    if (available === undefined) {
+      try {
+        available = await engine.isAvailable()
+      } catch {
+        available = false
+      }
+      engineAvailability.set(engine.id, available)
+    }
+
+    results.push({
+      id: engine.id,
+      name: engine.name,
+      description: engine.description,
+      supportsExport: engine.supportsExport,
+      available,
+    })
   }
 
-  // Fall back to Web Speech API (lite mode - preview only)
-  const webSpeechEngine = new WebSpeechEngine()
-  if (await webSpeechEngine.isAvailable()) {
-    cachedEngine = webSpeechEngine
-    cachedMode = 'lite'
-    return webSpeechEngine
+  return results
+}
+
+export function getEngineById(id: string): TtsEngine | null {
+  return allEngines.find((e) => e.id === id) || null
+}
+
+export async function getDefaultEngine(): Promise<TtsEngine | null> {
+  // Prefer SAM as it's lightweight and always works
+  for (const engine of allEngines) {
+    if (engine.supportsExport) {
+      let available = engineAvailability.get(engine.id)
+      if (available === undefined) {
+        try {
+          available = await engine.isAvailable()
+        } catch {
+          available = false
+        }
+        engineAvailability.set(engine.id, available)
+      }
+      if (available) {
+        return engine
+      }
+    }
   }
 
-  cachedMode = 'unknown'
+  // Fall back to Web Speech API for preview
+  const webSpeech = allEngines.find((e) => e.id === 'webspeech')
+  if (webSpeech && (await webSpeech.isAvailable())) {
+    return webSpeech
+  }
+
   return null
 }
 
-export async function getEngineMode(): Promise<EngineMode> {
-  if (cachedMode !== 'unknown') return cachedMode
-
-  await getAvailableEngine()
-  return cachedMode
+// Re-export for backwards compatibility
+export async function getAvailableEngine(): Promise<TtsEngine | null> {
+  return getDefaultEngine()
 }

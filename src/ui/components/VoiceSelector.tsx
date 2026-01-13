@@ -1,4 +1,4 @@
-import { Voice, EngineMode } from '../../tts/engine'
+import { Voice } from '../../tts/engine'
 
 interface VoiceSelectorProps {
   voices: Voice[]
@@ -8,7 +8,7 @@ interface VoiceSelectorProps {
   onRateChange: (rate: number) => void
   pitch: number
   onPitchChange: (pitch: number) => void
-  engineMode: EngineMode
+  supportsExport: boolean
 }
 
 export function VoiceSelector({
@@ -19,7 +19,7 @@ export function VoiceSelector({
   onRateChange,
   pitch,
   onPitchChange,
-  engineMode,
+  supportsExport,
 }: VoiceSelectorProps) {
   return (
     <div className="space-y-4 p-4 bg-gray-800 border border-gray-600 rounded-lg">
@@ -27,18 +27,12 @@ export function VoiceSelector({
         <h3 className="text-lg font-medium">Voice Settings</h3>
         <span
           className={`px-2 py-1 text-xs rounded ${
-            engineMode === 'full'
+            supportsExport
               ? 'bg-green-900 text-green-300'
-              : engineMode === 'lite'
-                ? 'bg-yellow-900 text-yellow-300'
-                : 'bg-gray-700 text-gray-400'
+              : 'bg-yellow-900 text-yellow-300'
           }`}
         >
-          {engineMode === 'full'
-            ? 'Full Export Mode'
-            : engineMode === 'lite'
-              ? 'Lite Mode (Preview Only)'
-              : 'Detecting...'}
+          {supportsExport ? 'Export Enabled' : 'Preview Only'}
         </span>
       </div>
 
@@ -111,10 +105,10 @@ export function VoiceSelector({
         </div>
       </div>
 
-      {engineMode === 'lite' && (
+      {!supportsExport && (
         <div className="p-3 bg-yellow-900/30 border border-yellow-600/50 rounded text-yellow-300 text-sm">
-          <strong>Lite Mode:</strong> Your browser does not support the full TTS engine. Preview is
-          available but audio export is disabled. For export, try using Chrome or Edge.
+          <strong>Preview Only:</strong> The selected engine cannot export audio. Select SAM or eSpeak
+          for audio downloads, or use Web Speech API for preview with native browser voices.
         </div>
       )}
     </div>

@@ -1,7 +1,10 @@
 import { TtsEngine, Voice, TtsOptions, PcmAudio, Progress } from '../engine'
 
 export class WebSpeechEngine implements TtsEngine {
-  name = 'Web Speech API (Preview Only)'
+  id = 'webspeech'
+  name = 'Web Speech API'
+  description = 'Native browser TTS - best voice quality, preview only (no export)'
+  supportsExport = false
 
   async isAvailable(): Promise<boolean> {
     return 'speechSynthesis' in window

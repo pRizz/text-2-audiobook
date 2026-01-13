@@ -41,3 +41,25 @@
 **Result:** Success - build passes, tests pass
 **Next:** Final verification
 ---
+
+### Iteration 2 - 2026-01-13T14:25:00Z
+**Worked on:** Multiple TTS engines and preview controls
+**Files changed:**
+- package.json - Added sam-js and mespeak dependencies
+- src/tts/engine.ts - Extended TtsEngine interface with id, description, supportsExport
+- src/tts/engineFactory.ts - Rewrote to support multiple engines with getAvailableEngines(), getEngineById()
+- src/tts/fullExportEngine/samEngine.ts - NEW: SAM (1982 retro) TTS engine
+- src/tts/fullExportEngine/meSpeakEngine.ts - NEW: eSpeak-based multilingual TTS
+- src/tts/fullExportEngine/piperEngine.ts - Updated interface
+- src/tts/liteSpeechEngine/webSpeechEngine.ts - Updated interface
+- src/ui/components/EngineSelector.tsx - NEW: Engine selection UI with descriptions
+- src/ui/components/PreviewPlayer.tsx - NEW: Preview with play/pause/stop controls
+- src/ui/components/VoiceSelector.tsx - Updated props
+- src/ui/components/ControlPanel.tsx - Removed preview button (moved to PreviewPlayer)
+- src/ui/components/OutputInfo.tsx - Updated props
+- src/App.tsx - Integrated new engine selector and preview player
+- src/types/sam-js.d.ts - NEW: Type declarations for sam-js
+**Tests:** 25 passing
+**Result:** Success - multiple TTS engines working, preview controls added
+**Next:** Consider web worker for TTS synthesis
+---

@@ -27,7 +27,10 @@ export interface Progress {
 export type EngineMode = 'full' | 'lite' | 'unknown'
 
 export interface TtsEngine {
+  id: string
   name: string
+  description: string
+  supportsExport: boolean
   isAvailable(): Promise<boolean>
   listVoices(): Promise<Voice[]>
   synthesizeToPcm(
@@ -36,4 +39,12 @@ export interface TtsEngine {
     onProgress: (p: Progress) => void,
     signal: AbortSignal
   ): Promise<PcmAudio>
+}
+
+export interface EngineInfo {
+  id: string
+  name: string
+  description: string
+  supportsExport: boolean
+  available: boolean
 }
