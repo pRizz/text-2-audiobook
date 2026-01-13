@@ -15,102 +15,88 @@ export function VoiceSelector({
   voices,
   selectedVoice,
   onVoiceChange,
-  rate,
-  onRateChange,
-  pitch,
-  onPitchChange,
-  supportsExport,
+  rate: _rate,
+  onRateChange: _onRateChange,
+  pitch: _pitch,
+  onPitchChange: _onPitchChange,
+  supportsExport: _supportsExport,
 }: VoiceSelectorProps) {
+  // Generate a subtitle based on the selected voice
+  const getVoiceSubtitle = (voice: Voice | null): string => {
+    if (!voice) return 'Select a voice'
+    // Try to extract gender/accent info from name
+    const name = voice.name.toLowerCase()
+    if (name.includes('female') || name.includes('f)')) {
+      return voice.language === 'en-GB' ? 'British, female' : 'Warm, American female'
+    }
+    if (name.includes('male') || name.includes('m)')) {
+      return voice.language === 'en-GB' ? 'British, male' : 'Deep, American male'
+    }
+    return `Voice in ${voice.language}`
+  }
+
   return (
-    <div className="space-y-4 p-4 bg-gray-800 border border-gray-600 rounded-lg">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Voice Settings</h3>
-        <span
-          className={`px-2 py-1 text-xs rounded ${
-            supportsExport
-              ? 'bg-green-900 text-green-300'
-              : 'bg-yellow-900 text-yellow-300'
-          }`}
-        >
-          {supportsExport ? 'Export Enabled' : 'Preview Only'}
-        </span>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MicrophoneIcon />
+        <h2 className="font-display font-semibold text-lg">Voice Settings</h2>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="space-y-4">
         <div>
-          <label htmlFor="voice-select" className="block text-sm font-medium text-gray-300 mb-1">
+          <label htmlFor="voice-select" className="text-sm text-muted-foreground mb-2 block">
             Voice
           </label>
-          <select
-            id="voice-select"
-            value={selectedVoice?.id || ''}
-            onChange={(e) => {
-              const voice = voices.find((v) => v.id === e.target.value)
-              if (voice) onVoiceChange(voice)
-            }}
-            className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {voices.length === 0 ? (
-              <option value="">Loading voices...</option>
-            ) : (
-              voices.map((voice) => (
-                <option key={voice.id} value={voice.id}>
-                  {voice.name} ({voice.language})
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="rate-slider" className="block text-sm font-medium text-gray-300 mb-1">
-            Speed: {rate.toFixed(1)}x
-          </label>
-          <input
-            id="rate-slider"
-            type="range"
-            min="0.5"
-            max="2"
-            step="0.1"
-            value={rate}
-            onChange={(e) => onRateChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0.5x</span>
-            <span>1x</span>
-            <span>2x</span>
+          <div className="relative">
+            <select
+              id="voice-select"
+              value={selectedVoice?.id || ''}
+              onChange={(e) => {
+                const voice = voices.find((v) => v.id === e.target.value)
+                if (voice) onVoiceChange(voice)
+              }}
+              className="w-full p-3 pr-10 bg-muted/50 border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none cursor-pointer"
+            >
+              {voices.length === 0 ? (
+                <option value="">Loading voices...</option>
+              ) : (
+                voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.name}
+                  </option>
+                ))
+              )}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+              <ChevronDownIcon />
+            </div>
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="pitch-slider" className="block text-sm font-medium text-gray-300 mb-1">
-            Pitch: {pitch.toFixed(1)}
-          </label>
-          <input
-            id="pitch-slider"
-            type="range"
-            min="0.5"
-            max="2"
-            step="0.1"
-            value={pitch}
-            onChange={(e) => onPitchChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>Low</span>
-            <span>Normal</span>
-            <span>High</span>
-          </div>
+          {selectedVoice && (
+            <p className="text-xs text-muted-foreground mt-2">{getVoiceSubtitle(selectedVoice)}</p>
+          )}
         </div>
       </div>
-
-      {!supportsExport && (
-        <div className="p-3 bg-yellow-900/30 border border-yellow-600/50 rounded text-yellow-300 text-sm">
-          <strong>Preview Only:</strong> The selected engine cannot export audio. Select SAM or eSpeak
-          for audio downloads, or use Web Speech API for preview with native browser voices.
-        </div>
-      )}
     </div>
+  )
+}
+
+function MicrophoneIcon() {
+  return (
+    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+      />
+    </svg>
+  )
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
   )
 }

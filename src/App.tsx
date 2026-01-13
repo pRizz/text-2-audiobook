@@ -6,6 +6,7 @@ import { PreviewPlayer } from './ui/components/PreviewPlayer'
 import { ProgressBar } from './ui/components/ProgressBar'
 import { ControlPanel } from './ui/components/ControlPanel'
 import { OutputInfo } from './ui/components/OutputInfo'
+import { OutputFormatSelector } from './ui/components/OutputFormatSelector'
 import { TtsEngine, Voice, TtsOptions, PcmAudio, Progress, EngineInfo } from './tts/engine'
 import { getAvailableEngines, getEngineById, getDefaultEngine } from './tts/engineFactory'
 import { encodeToMp3 } from './audio/mp3Encoder'
@@ -30,6 +31,9 @@ function App() {
   // Chapter state
   const [chapterMode, setChapterMode] = useState(false)
   const [chapters, setChapters] = useState<Chapter[]>([])
+
+  // Output format state
+  const [outputFormat, setOutputFormat] = useState<'mp3' | 'm4b'>('mp3')
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false)
@@ -209,92 +213,146 @@ function App() {
   const canExport = currentEngineInfo?.supportsExport ?? false
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">Text to Audiobook</h1>
-        <p className="text-gray-400 mb-6">
-          Convert your text to speech and download as MP3 or M4B.
-          {currentEngineInfo && !currentEngineInfo.supportsExport && (
-            <span className="text-yellow-400 ml-2">
-              (Preview only - select an export-capable engine for downloads)
-            </span>
-          )}
-        </p>
-
-        <div className="space-y-6">
-          <TextInput
-            value={text}
-            onChange={setText}
-            chapterMode={chapterMode}
-            onChapterModeChange={setChapterMode}
-            chapters={chapters}
-          />
-
-          <div className="p-4 bg-gray-800 border border-gray-600 rounded-lg space-y-4">
-            <EngineSelector
-              engines={engines}
-              selectedEngineId={selectedEngineId}
-              onEngineChange={handleEngineChange}
-              isLoading={isLoadingEngines}
-            />
+    <div className="min-h-screen bg-background waveform-bg">
+      {/* Header */}
+      <header className="w-full py-6 px-6 border-b border-border/50">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center glow-effect">
+              <HeadphoneIcon />
+            </div>
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              <span className="text-gradient">Text2Audiobook</span>
+            </h1>
           </div>
-
-          <VoiceSelector
-            voices={voices}
-            selectedVoice={selectedVoice}
-            onVoiceChange={setSelectedVoice}
-            rate={rate}
-            onRateChange={setRate}
-            pitch={pitch}
-            onPitchChange={setPitch}
-            supportsExport={canExport}
-          />
-
-          <div className="p-4 bg-gray-800 border border-gray-600 rounded-lg">
-            <h3 className="text-lg font-medium mb-3">Preview (Web Speech API)</h3>
-            <PreviewPlayer
-              text={text}
-              voice={selectedVoice}
-              rate={rate}
-              pitch={pitch}
-              disabled={isGenerating}
-            />
-          </div>
-
-          {progress && (
-            <ProgressBar progress={progress} />
-          )}
-
-          <ControlPanel
-            onGenerate={handleGenerate}
-            onCancel={handleCancel}
-            onDownloadMp3={handleDownloadMp3}
-            onDownloadM4b={handleDownloadM4b}
-            isGenerating={isGenerating}
-            isEncodingMp3={isEncodingMp3}
-            isEncodingM4b={isEncodingM4b}
-            canGenerate={canExport && !!text.trim() && !!selectedVoice}
-            canDownload={!!pcmAudio}
-            m4bSupported={m4bSupported}
-          />
-
-          <OutputInfo
-            pcmAudio={pcmAudio}
-            mp3Blob={mp3Blob}
-            m4bBlob={m4bBlob}
-            engineName={selectedEngine?.name}
-            supportsExport={canExport}
-          />
-        </div>
-
-        <footer className="mt-12 pt-6 border-t border-gray-700 text-center text-gray-500 text-sm">
-          <p>All processing happens locally in your browser. No data is uploaded.</p>
-          <p className="mt-1">
-            TTS Engines: SAM (1982 retro), eSpeak (multi-language), Web Speech (native)
+          <p className="text-muted-foreground text-sm hidden sm:block">
+            Transform text into immersive audiobooks
           </p>
-        </footer>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Column - Text Input */}
+          <div className="lg:col-span-2">
+            <TextInput
+              value={text}
+              onChange={setText}
+              chapterMode={chapterMode}
+              onChapterModeChange={setChapterMode}
+              chapters={chapters}
+            />
+
+            {/* Progress Bar */}
+            {progress && (
+              <div className="mt-6">
+                <ProgressBar progress={progress} />
+              </div>
+            )}
+
+            {/* Output Info - Show after generation */}
+            {pcmAudio && (
+              <div className="mt-6">
+                <OutputInfo
+                  pcmAudio={pcmAudio}
+                  mp3Blob={mp3Blob}
+                  m4bBlob={m4bBlob}
+                  engineName={selectedEngine?.name}
+                  supportsExport={canExport}
+                  onDownloadMp3={handleDownloadMp3}
+                  onDownloadM4b={handleDownloadM4b}
+                  isEncodingMp3={isEncodingMp3}
+                  isEncodingM4b={isEncodingM4b}
+                  canDownload={!!pcmAudio}
+                  m4bSupported={m4bSupported}
+                />
+              </div>
+            )}
+
+            {/* Preview Player - Keep available */}
+            {pcmAudio && (
+              <div className="mt-6 glass-panel p-6">
+                <h3 className="text-lg font-medium mb-3">Preview</h3>
+                <PreviewPlayer
+                  text={text}
+                  voice={selectedVoice}
+                  rate={rate}
+                  pitch={pitch}
+                  disabled={isGenerating}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Settings */}
+          <div className="space-y-6">
+            {/* Voice Settings */}
+            <div className="glass-panel p-6 space-y-4 animate-fade-in">
+              <EngineSelector
+                engines={engines}
+                selectedEngineId={selectedEngineId}
+                onEngineChange={handleEngineChange}
+                isLoading={isLoadingEngines}
+              />
+              <div className="pt-4 border-t border-border/50">
+                <VoiceSelector
+                  voices={voices}
+                  selectedVoice={selectedVoice}
+                  onVoiceChange={setSelectedVoice}
+                  rate={rate}
+                  onRateChange={setRate}
+                  pitch={pitch}
+                  onPitchChange={setPitch}
+                  supportsExport={canExport}
+                />
+              </div>
+            </div>
+
+            {/* Output Format */}
+            <div className="glass-panel p-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <OutputFormatSelector
+                format={outputFormat}
+                onFormatChange={setOutputFormat}
+                m4bSupported={m4bSupported}
+              />
+            </div>
+
+            {/* Generate Button */}
+            <ControlPanel
+              onGenerate={handleGenerate}
+              onCancel={handleCancel}
+              onDownloadMp3={handleDownloadMp3}
+              onDownloadM4b={handleDownloadM4b}
+              isGenerating={isGenerating}
+              isEncodingMp3={isEncodingMp3}
+              isEncodingM4b={isEncodingM4b}
+              canGenerate={canExport && !!text.trim() && !!selectedVoice}
+              canDownload={!!pcmAudio}
+              m4bSupported={m4bSupported}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <div className="mt-12 text-center text-sm text-muted-foreground">
+        <p>All processing happens locally in your browser. No data is uploaded.</p>
       </div>
     </div>
+  )
+}
+
+function HeadphoneIcon() {
+  return (
+    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+      />
+    </svg>
   )
 }
 

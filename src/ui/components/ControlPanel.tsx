@@ -14,106 +14,67 @@ interface ControlPanelProps {
 export function ControlPanel({
   onGenerate,
   onCancel,
-  onDownloadMp3,
-  onDownloadM4b,
+  onDownloadMp3: _onDownloadMp3,
+  onDownloadM4b: _onDownloadM4b,
   isGenerating,
   isEncodingMp3,
   isEncodingM4b,
   canGenerate,
-  canDownload,
-  m4bSupported,
+  canDownload: _canDownload,
+  m4bSupported: _m4bSupported,
 }: ControlPanelProps) {
-  const isBusy = isGenerating || isEncodingMp3 || isEncodingM4b
+
+  if (isGenerating) {
+    return (
+      <button
+        onClick={onCancel}
+        className="w-full h-14 rounded-xl px-10 text-lg font-semibold bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+      >
+        <StopIcon />
+        Cancel Generation
+      </button>
+    )
+  }
+
+  if (isEncodingMp3 || isEncodingM4b) {
+    return (
+      <button
+        disabled
+        className="w-full h-14 rounded-xl px-10 text-lg font-semibold bg-secondary text-secondary-foreground cursor-not-allowed flex items-center justify-center gap-2 opacity-50"
+      >
+        <GearIcon />
+        {isEncodingMp3 ? 'Encoding MP3...' : 'Creating M4B...'}
+      </button>
+    )
+  }
 
   return (
-    <div className="p-4 bg-gray-800 border border-gray-600 rounded-lg">
-      <h3 className="text-lg font-medium mb-3">Generate & Export</h3>
-      <div className="flex flex-wrap gap-3">
-        {/* Generate / Cancel button */}
-        {isGenerating ? (
-          <button
-            onClick={onCancel}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-          >
-            <StopIcon />
-            Cancel Generation
-          </button>
-        ) : (
-          <button
-            onClick={onGenerate}
-            disabled={!canGenerate}
-            className={`px-6 py-3 font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              canGenerate
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
-            title={!canGenerate ? 'Enter text and select an export-capable engine' : ''}
-          >
-            <GenerateIcon />
-            Generate Audio
-          </button>
-        )}
-
-        {/* Download buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={onDownloadMp3}
-            disabled={!canDownload || isBusy}
-            className={`px-6 py-3 font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              canDownload && !isBusy
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
-            title={!canDownload ? 'Generate audio first' : ''}
-          >
-            <DownloadIcon />
-            {isEncodingMp3 ? 'Encoding...' : 'Download MP3'}
-          </button>
-
-          <button
-            onClick={onDownloadM4b}
-            disabled={!canDownload || !m4bSupported || isBusy}
-            className={`px-6 py-3 font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              canDownload && m4bSupported && !isBusy
-                ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
-            title={
-              !m4bSupported
-                ? 'M4B requires cross-origin isolation (not available in this environment)'
-                : !canDownload
-                  ? 'Generate audio first'
-                  : ''
-            }
-          >
-            <DownloadIcon />
-            {isEncodingM4b ? 'Encoding...' : 'Download M4B'}
-            {!m4bSupported && <span className="text-xs">(N/A)</span>}
-          </button>
-        </div>
-      </div>
-
-      {!canGenerate && (
-        <p className="mt-3 text-sm text-gray-500">
-          Enter text and select an export-capable engine (SAM or eSpeak) to generate audio.
-        </p>
-      )}
-    </div>
+    <button
+      onClick={onGenerate}
+      disabled={!canGenerate}
+      className={`w-full h-14 rounded-xl px-10 text-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+        canGenerate
+          ? 'bg-primary text-primary-foreground shadow-lg glow-effect hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
+          : 'bg-secondary text-secondary-foreground cursor-not-allowed opacity-50'
+      }`}
+      title={!canGenerate ? 'Enter text and select an export-capable engine' : ''}
+    >
+      <GearIcon />
+      Generate Audiobook
+    </button>
   )
 }
 
-function GenerateIcon() {
+function GearIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-    </svg>
-  )
-}
-
-function DownloadIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   )
 }
@@ -125,3 +86,4 @@ function StopIcon() {
     </svg>
   )
 }
+

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Chapter, getTextStatistics } from '../../chapters/parseChapters'
 
 export const gettysburgAddress = `
@@ -15,77 +16,104 @@ interface TextInputProps {
 export function TextInput({
   value,
   onChange,
-  chapterMode,
-  onChapterModeChange,
-  chapters,
+  chapterMode: _chapterMode,
+  onChapterModeChange: _onChapterModeChange,
+  chapters: _chapters,
 }: TextInputProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const stats = getTextStatistics(value)
-  const isLongText = stats.words > 5000
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      // For now, support text files. PDF/EPUB parsing can be added later
+      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+        const text = await file.text()
+        onChange(text)
+      } else {
+        alert('Currently only TXT files are supported. PDF and EPUB support coming soon.')
+      }
+    } catch (error) {
+      console.error('Failed to read file:', error)
+      alert('Failed to read file. Please try again.')
+    } finally {
+      // Reset input so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <label htmlFor="text-input" className="text-lg font-medium">
-          Enter your text
-        </label>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={chapterMode}
-              onChange={(e) => onChapterModeChange(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-300">Chapter mode</span>
-          </label>
+    <div className="space-y-4">
+      <div className="glass-panel p-6 animate-fade-in">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <DocumentIcon />
+            <h2 className="font-display font-semibold text-lg">Your Text</h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary/50 hover:bg-secondary border border-border/50 rounded-lg transition-colors text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <UploadIcon />
+            Import File
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.text"
+            onChange={handleFileImport}
+            className="hidden"
+          />
+        </div>
+
+        <textarea
+          id="text-input"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Paste or type your text here... Books, articles, scripts — anything you want to hear."
+          className="w-full min-h-[300px] bg-muted/50 border border-border/50 rounded-md resize-none text-base leading-relaxed placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring/50 px-3 py-2 text-foreground transition-colors"
+        />
+
+        <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
+          <span>{stats.words.toLocaleString()} words</span>
+          <span>{stats.characters.toLocaleString()} characters</span>
         </div>
       </div>
 
-      <textarea
-        id="text-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Paste or type your text here...&#10;&#10;For chapters, start lines with '# ' (e.g., '# Chapter 1')&#10;&#10;Example:&#10;# Chapter 1&#10;This is the first chapter content...&#10;&#10;# Chapter 2&#10;This is the second chapter..."
-        className="w-full h-64 p-4 bg-gray-800 border border-gray-600 rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-
-      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400">
-        <span>{stats.characters.toLocaleString()} characters</span>
-        <span>{stats.words.toLocaleString()} words</span>
-        <span>{stats.sentences.toLocaleString()} sentences</span>
-        {chapterMode && <span>{chapters.length} chapters detected</span>}
+      <div className="mt-12 text-center text-sm text-muted-foreground">
+        <p>Supports TXT, PDF, EPUB imports • Chapters auto-detected for M4B</p>
       </div>
-
-      {isLongText && (
-        <div className="p-3 bg-yellow-900/30 border border-yellow-600/50 rounded-lg text-yellow-300 text-sm">
-          <strong>Long text detected:</strong> Consider enabling chapter mode for better
-          organization. Very long texts may take longer to process.
-        </div>
-      )}
-
-      {chapterMode && chapters.length > 0 && (
-        <div className="p-3 bg-gray-800 border border-gray-600 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-300 mb-2">
-            Detected Chapters ({chapters.length}):
-          </h4>
-          <ul className="space-y-1 text-sm text-gray-400 max-h-32 overflow-y-auto">
-            {chapters.map((chapter, index) => (
-              <li key={index} className="flex justify-between">
-                <span className="truncate">{chapter.title}</span>
-                <span className="text-gray-500 ml-2">
-                  {chapter.text.split(/\s+/).length} words
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {chapterMode && chapters.length === 0 && value.trim() && (
-        <div className="p-3 bg-gray-800 border border-gray-600 rounded-lg text-sm text-gray-400">
-          No chapters detected. Add lines starting with "# " to create chapters.
-        </div>
-      )}
     </div>
+  )
+}
+
+function DocumentIcon() {
+  return (
+    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
+    </svg>
+  )
+}
+
+function UploadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+      />
+    </svg>
   )
 }
