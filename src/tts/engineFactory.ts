@@ -2,14 +2,19 @@ import { TtsEngine, EngineInfo } from './engine'
 import { PiperTtsEngine } from './fullExportEngine/piperEngine'
 import { SamTtsEngine } from './fullExportEngine/samEngine'
 import { MeSpeakTtsEngine } from './fullExportEngine/meSpeakEngine'
+import { KokoroTtsEngine } from './fullExportEngine/kokoroEngine'
+import { HeadTtsEngine } from './fullExportEngine/headTtsEngine'
 import { WebSpeechEngine } from './liteSpeechEngine/webSpeechEngine'
 
 // All available TTS engines
+// Order matters - first available export-capable engine is the default
 const allEngines: TtsEngine[] = [
-  new SamTtsEngine(),
-  new MeSpeakTtsEngine(),
-  new PiperTtsEngine(),
-  new WebSpeechEngine(),
+  new KokoroTtsEngine(), // Best quality, neural TTS
+  new HeadTtsEngine(), // Neural TTS with timestamps
+  new SamTtsEngine(), // Lightweight retro TTS
+  new MeSpeakTtsEngine(), // Multi-language support
+  new PiperTtsEngine(), // Placeholder
+  new WebSpeechEngine(), // Preview only
 ]
 
 // Cache for engine availability

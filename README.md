@@ -17,7 +17,25 @@ A fully frontend web application that converts text to speech and exports downlo
 
 The app supports multiple TTS engines that you can switch between:
 
-### SAM (Software Automatic Mouth) - Recommended
+### Kokoro (Neural) - Recommended
+- **Type**: 82M parameter neural TTS model
+- **Quality**: High quality, natural-sounding speech
+- **Export**: Yes - generates PCM audio at 24kHz
+- **Voices**: 20+ voices (American/British, Male/Female)
+- **Size**: ~86MB quantized model (loaded on first use)
+- **Languages**: English (US and British)
+- **Acceleration**: WebGPU (10x faster) or WASM fallback
+- **Note**: First load takes ~30s to download model
+
+### HeadTTS (Neural + Timestamps)
+- **Type**: Neural TTS with word-level timing
+- **Quality**: High quality (uses Kokoro model)
+- **Export**: Yes - generates PCM audio at 24kHz
+- **Voices**: Same as Kokoro
+- **Features**: Word timestamps and visemes for lip-sync
+- **Note**: Ideal for applications needing timing metadata
+
+### SAM (Software Automatic Mouth)
 - **Type**: Retro speech synthesizer from 1982
 - **Quality**: Classic robotic voice (nostalgic!)
 - **Export**: Yes - generates PCM audio
@@ -138,6 +156,8 @@ src/
 │   ├── engine.ts                    # TTS engine interfaces
 │   ├── engineFactory.ts             # Engine selection logic
 │   ├── fullExportEngine/
+│   │   ├── kokoroEngine.ts          # Kokoro neural TTS (recommended)
+│   │   ├── headTtsEngine.ts         # HeadTTS with timestamps
 │   │   ├── samEngine.ts             # SAM (1982 retro) engine
 │   │   ├── meSpeakEngine.ts         # eSpeak-based engine
 │   │   └── piperEngine.ts           # Piper TTS placeholder
@@ -186,6 +206,8 @@ All text processing happens locally in your browser:
 - **React** - UI framework
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
+- **kokoro-js** - Kokoro 82M neural TTS
+- **@met4citizen/headtts** - HeadTTS with timestamps
 - **sam-js** - SAM speech synthesizer
 - **mespeak** - eSpeak port to JavaScript
 - **lamejs** - MP3 encoding
@@ -194,6 +216,8 @@ All text processing happens locally in your browser:
 
 ## Credits
 
+- **Kokoro**: Neural TTS model by [hexgrad](https://github.com/hexgrad/kokoro), JS library by [Xenova](https://github.com/xenova)
+- **HeadTTS**: TTS with timestamps by [met4citizen](https://github.com/met4citizen/HeadTTS)
 - **SAM**: Original by Don't Ask Software (1982), JS port by [discordier](https://github.com/discordier/sam)
 - **meSpeak**: eSpeak port by [Norbert Landsteiner](https://www.masswerk.at/mespeak/)
 - **lamejs**: MP3 encoder by [AnthumChris](https://github.com/AnthumChris/lamejs)

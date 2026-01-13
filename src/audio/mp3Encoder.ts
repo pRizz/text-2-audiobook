@@ -1,6 +1,6 @@
 import { PcmAudio } from '../tts/engine'
 
-// MP3 Encoder using lamejs
+// MP3 Encoder using @breezystack/lamejs (ESM-compatible fork)
 // This runs encoding in chunks to provide progress updates
 
 export async function encodeToMp3(
@@ -8,7 +8,7 @@ export async function encodeToMp3(
   onProgress: (percent: number) => void
 ): Promise<Blob> {
   // Dynamic import of lamejs
-  const { default: lamejs } = await import('lamejs')
+  const lamejs = await import('@breezystack/lamejs')
 
   const { samples, sampleRate, channels } = audio
   const kbps = 128
@@ -22,14 +22,14 @@ export async function encodeToMp3(
     int16Samples[i] = s < 0 ? s * 0x8000 : s * 0x7fff
   }
 
-  const mp3Data: Int8Array[] = []
+  const mp3Data: Uint8Array[] = []
   const totalBlocks = Math.ceil(int16Samples.length / sampleBlockSize)
 
   for (let i = 0; i < int16Samples.length; i += sampleBlockSize) {
     const blockIndex = Math.floor(i / sampleBlockSize)
     const sampleChunk = int16Samples.subarray(i, i + sampleBlockSize)
 
-    let mp3buf: Int8Array
+    let mp3buf: Uint8Array
     if (channels === 1) {
       mp3buf = mp3encoder.encodeBuffer(sampleChunk)
     } else {
@@ -67,7 +67,7 @@ export async function encodeToMp3(
   const result = new Uint8Array(totalLength)
   let offset = 0
   for (const chunk of mp3Data) {
-    result.set(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length), offset)
+    result.set(chunk, offset)
     offset += chunk.length
   }
 
