@@ -266,6 +266,7 @@ function App() {
                   isEncodingM4b={isEncodingM4b}
                   canDownload={!!pcmAudio}
                   m4bSupported={m4bSupported}
+                  chapters={chapters}
                 />
               </div>
             )}

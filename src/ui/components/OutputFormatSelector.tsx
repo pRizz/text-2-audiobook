@@ -43,6 +43,9 @@ export function OutputFormatSelector({
         >
           <div className="font-display font-semibold text-lg mb-1">M4B</div>
           <div className="text-xs opacity-70">Chapters & bookmarks</div>
+          {!m4bSupported && (
+            <div className="text-xs opacity-50 mt-1">Requires WebCodecs support</div>
+          )}
         </button>
       </div>
     </div>

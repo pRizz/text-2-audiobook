@@ -86,7 +86,13 @@ export function TextInput({
       </div>
 
       <div className="mt-12 text-center text-sm text-muted-foreground">
-        <p>Supports TXT, PDF, EPUB imports • Chapters auto-detected for M4B</p>
+        <p>Supports TXT, PDF, EPUB imports</p>
+        {_chapters.length > 1 && (
+          <p className="mt-2 text-xs opacity-70">
+            {_chapters.length} chapters detected (lines starting with "# "). 
+            Chapter timing is estimated based on text position and may not be perfectly accurate.
+          </p>
+        )}
       </div>
     </div>
   )

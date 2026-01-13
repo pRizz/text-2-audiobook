@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { PcmAudio } from '../../tts/engine'
 import { formatDuration, getDurationSeconds, pcmToWav } from '../../audio/pcm'
+import { Chapter } from '../../chapters/parseChapters'
 
 interface OutputInfoProps {
   pcmAudio: PcmAudio | null
@@ -14,6 +15,7 @@ interface OutputInfoProps {
   isEncodingM4b?: boolean
   canDownload?: boolean
   m4bSupported?: boolean
+  chapters?: Chapter[]
 }
 
 function formatBytes(bytes: number): string {
@@ -34,6 +36,7 @@ export function OutputInfo({
   isEncodingM4b = false,
   canDownload = false,
   m4bSupported = false,
+  chapters = [],
 }: OutputInfoProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -149,6 +152,22 @@ export function OutputInfo({
               {m4bBlob && <span className="text-xs">({formatBytes(m4bBlob.size)})</span>}
             </button>
           </div>
+          {chapters.length > 1 && m4bSupported && (
+            <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg text-xs text-yellow-200/80">
+              <p className="font-medium mb-1">Chapter Detection Note</p>
+              <p>
+                Chapters are detected from lines starting with "# " in your text. 
+                Chapter timing is estimated by mapping text positions to audio positions 
+                (assuming uniform text-to-audio mapping). This is a best-guess approach and 
+                may not be perfectly accurate, especially if speech rate varies.
+              </p>
+              <p className="mt-2 opacity-70">
+                Note: Chapter markers are currently not embedded in the M4B file due to 
+                mp4box.js API limitations. The file is still valid and playable, but chapter 
+                navigation may not work in all players.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
