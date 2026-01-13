@@ -270,19 +270,18 @@ function App() {
               </div>
             )}
 
-            {/* Preview Player - Keep available */}
-            {pcmAudio && (
-              <div className="mt-6 glass-panel p-6">
-                <h3 className="text-lg font-medium mb-3">Preview</h3>
-                <PreviewPlayer
-                  text={text}
-                  voice={selectedVoice}
-                  rate={rate}
-                  pitch={pitch}
-                  disabled={isGenerating}
-                />
-              </div>
-            )}
+            {/* Preview Player */}
+            <div className="mt-6 glass-panel p-6">
+              <h3 className="text-lg font-medium mb-3">Preview</h3>
+              <PreviewPlayer
+                text={text}
+                engine={selectedEngine}
+                voice={selectedVoice}
+                rate={rate}
+                pitch={pitch}
+                disabled={isGenerating}
+              />
+            </div>
           </div>
 
           {/* Right Column - Settings */}

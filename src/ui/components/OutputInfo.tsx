@@ -1,5 +1,6 @@
+import { useState, useEffect, useRef } from 'react'
 import { PcmAudio } from '../../tts/engine'
-import { formatDuration, getDurationSeconds } from '../../audio/pcm'
+import { formatDuration, getDurationSeconds, pcmToWav } from '../../audio/pcm'
 
 interface OutputInfoProps {
   pcmAudio: PcmAudio | null
@@ -34,6 +35,25 @@ export function OutputInfo({
   canDownload = false,
   m4bSupported = false,
 }: OutputInfoProps) {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Create audio URL from available sources (prefer MP3, fallback to WAV)
+  useEffect(() => {
+    if (mp3Blob) {
+      const url = URL.createObjectURL(mp3Blob)
+      setAudioUrl(url)
+      return () => URL.revokeObjectURL(url)
+    } else if (pcmAudio) {
+      const wavBlob = pcmToWav(pcmAudio)
+      const url = URL.createObjectURL(wavBlob)
+      setAudioUrl(url)
+      return () => URL.revokeObjectURL(url)
+    } else {
+      setAudioUrl(null)
+    }
+  }, [pcmAudio, mp3Blob])
+
   if (!pcmAudio && !mp3Blob && !m4bBlob) {
     return null
   }
@@ -42,8 +62,24 @@ export function OutputInfo({
   const isBusy = isEncodingMp3 || isEncodingM4b
 
   return (
-    <div className="p-6 bg-gray-800 border border-gray-700 rounded-lg space-y-4">
+    <div className="glass-panel p-6 space-y-4">
       <h3 className="text-lg font-medium">Output Information</h3>
+
+      {/* Audio Player */}
+      {audioUrl && (
+        <div className="pt-4 border-t border-border/50">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3">Preview</h4>
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            controls
+            className="w-full h-10 rounded-lg"
+            preload="metadata"
+          >
+            Your browser does not support the audio element.
+          </audio>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 text-sm">
         {pcmAudio && (
@@ -82,8 +118,8 @@ export function OutputInfo({
 
       {/* Download Buttons */}
       {pcmAudio && onDownloadMp3 && onDownloadM4b && (
-        <div className="pt-4 border-t border-gray-700">
-          <h4 className="text-sm font-medium text-gray-400 mb-3">Download</h4>
+        <div className="pt-4 border-t border-border/50">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3">Download</h4>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onDownloadMp3}
@@ -118,8 +154,8 @@ export function OutputInfo({
 
       {/* Generated Files Info */}
       {(mp3Blob || m4bBlob) && !onDownloadMp3 && (
-        <div className="pt-4 border-t border-gray-700">
-          <h4 className="text-sm font-medium text-gray-400 mb-2">Generated Files</h4>
+        <div className="pt-4 border-t border-border/50">
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Generated Files</h4>
           <div className="flex flex-wrap gap-4">
             {mp3Blob && (
               <div className="flex items-center gap-2 px-3 py-2 bg-green-900/30 border border-green-600/50 rounded">

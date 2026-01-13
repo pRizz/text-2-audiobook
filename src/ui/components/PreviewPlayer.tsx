@@ -1,171 +1,167 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Voice } from '../../tts/engine'
+import { TtsEngine, Voice, TtsOptions } from '../../tts/engine'
+import { pcmToWav } from '../../audio/pcm'
 
 interface PreviewPlayerProps {
   text: string
+  engine: TtsEngine | null
   voice: Voice | null
   rate: number
   pitch: number
   disabled: boolean
 }
 
-export function PreviewPlayer({ text, voice, rate, pitch, disabled }: PreviewPlayerProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isPaused, setIsPaused] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
-  const textToSpeak = text.slice(0, 500) // Limit preview length
+// Get first ~25 words for preview
+function getPreviewText(text: string): string {
+  const words = text.trim().split(/\s+/)
+  const previewWords = words.slice(0, 25)
+  return previewWords.join(' ')
+}
 
-  // Track speaking progress
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>
-    if (isPlaying && !isPaused) {
-      interval = setInterval(() => {
-        // Web Speech API doesn't give us exact position, estimate based on time
-        setProgress((prev) => {
-          const estimatedDuration = (textToSpeak.length / 15) * (1 / rate) // ~15 chars/sec
-          const increment = (100 / estimatedDuration) * 0.1 // Update every 100ms
-          return Math.min(prev + increment, 99)
-        })
-      }, 100)
-    }
-    return () => clearInterval(interval)
-  }, [isPlaying, isPaused, textToSpeak.length, rate])
+export function PreviewPlayer({ text, engine, voice, rate, pitch, disabled }: PreviewPlayerProps) {
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  const handlePlay = useCallback(() => {
-    if (!voice || !textToSpeak.trim()) return
+  const previewText = getPreviewText(text)
+  const wordCount = previewText.split(/\s+/).length
 
-    // Cancel any existing speech
-    speechSynthesis.cancel()
-
-    const utterance = new SpeechSynthesisUtterance(textToSpeak)
-    utterance.rate = rate
-    utterance.pitch = pitch
-
-    // Find matching voice
-    const webVoices = speechSynthesis.getVoices()
-    const matchingVoice = webVoices.find((v) => v.name === voice.id)
-    if (matchingVoice) {
-      utterance.voice = matchingVoice
-    }
-
-    utterance.onstart = () => {
-      setIsPlaying(true)
-      setIsPaused(false)
-      setProgress(0)
-    }
-
-    utterance.onend = () => {
-      setIsPlaying(false)
-      setIsPaused(false)
-      setProgress(100)
-      setTimeout(() => setProgress(0), 500)
-    }
-
-    utterance.onerror = () => {
-      setIsPlaying(false)
-      setIsPaused(false)
-      setProgress(0)
-    }
-
-    utteranceRef.current = utterance
-    speechSynthesis.speak(utterance)
-  }, [voice, textToSpeak, rate, pitch])
-
-  const handlePause = useCallback(() => {
-    if (isPlaying && !isPaused) {
-      speechSynthesis.pause()
-      setIsPaused(true)
-    }
-  }, [isPlaying, isPaused])
-
-  const handleResume = useCallback(() => {
-    if (isPlaying && isPaused) {
-      speechSynthesis.resume()
-      setIsPaused(false)
-    }
-  }, [isPlaying, isPaused])
-
-  const handleStop = useCallback(() => {
-    speechSynthesis.cancel()
-    setIsPlaying(false)
-    setIsPaused(false)
-    setProgress(0)
-    utteranceRef.current = null
-  }, [])
-
-  // Cleanup on unmount
+  // Cleanup audio URL on unmount
   useEffect(() => {
     return () => {
-      speechSynthesis.cancel()
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl)
+      }
     }
+  }, [audioUrl])
+
+  const handlePreview = useCallback(async () => {
+    if (!engine || !voice || !previewText.trim()) return
+
+    // Clean up previous audio
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl)
+      setAudioUrl(null)
+    }
+
+    // Stop any playing audio
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+
+    setIsGenerating(true)
+    setError(null)
+    abortControllerRef.current = new AbortController()
+
+    try {
+      const options: TtsOptions = {
+        voice,
+        rate,
+        pitch,
+      }
+
+      const audio = await engine.synthesizeToPcm(
+        previewText,
+        options,
+        () => {}, // No progress tracking for preview
+        abortControllerRef.current.signal
+      )
+
+      // Convert PCM to WAV
+      const wavBlob = pcmToWav(audio)
+      const url = URL.createObjectURL(wavBlob)
+      setAudioUrl(url)
+
+      // Auto-play when ready
+      if (audioRef.current) {
+        audioRef.current.load()
+        audioRef.current.play().catch((e) => {
+          console.error('Failed to play preview:', e)
+          setError('Failed to play audio')
+        })
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error('Preview generation failed:', error)
+        setError('Failed to generate preview')
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [engine, voice, previewText, rate, pitch, audioUrl])
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort()
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+    setIsGenerating(false)
   }, [])
 
-  const canPlay = !disabled && voice && textToSpeak.trim().length > 0
+  const canPreview = !disabled && engine && voice && previewText.trim().length > 0
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        {!isPlaying ? (
-          <button
-            onClick={handlePlay}
-            disabled={!canPlay}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              canPlay
-                ? 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600'
-                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-            }`}
-            title={!canPlay ? 'Enter text and select a voice to preview' : 'Play preview'}
-          >
-            <PlayIcon />
-            Preview
-          </button>
-        ) : (
-          <>
-            {isPaused ? (
-              <button
-                onClick={handleResume}
-                className="px-4 py-2 rounded-lg font-medium bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2"
-              >
-                <PlayIcon />
-                Resume
-              </button>
-            ) : (
-              <button
-                onClick={handlePause}
-                className="px-4 py-2 rounded-lg font-medium bg-yellow-600 hover:bg-yellow-700 text-white transition-colors flex items-center gap-2"
-              >
-                <PauseIcon />
-                Pause
-              </button>
-            )}
-            <button
-              onClick={handleStop}
-              className="px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2"
-            >
-              <StopIcon />
-              Stop
-            </button>
-          </>
-        )}
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={isGenerating ? handleStop : handlePreview}
+          disabled={!canPreview && !isGenerating}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            canPreview || isGenerating
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'bg-secondary text-secondary-foreground cursor-not-allowed opacity-50'
+          }`}
+          title={
+            !canPreview
+              ? 'Enter text and select an engine and voice to preview'
+              : isGenerating
+                ? 'Stop preview generation'
+                : 'Preview first few words with selected voice settings'
+          }
+        >
+          {isGenerating ? (
+            <>
+              <LoaderIcon />
+              Generating...
+            </>
+          ) : (
+            <>
+              <PlayIcon />
+              Preview First {wordCount} Words
+            </>
+          )}
+        </button>
       </div>
 
-      {isPlaying && (
-        <div className="space-y-1">
-          <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-100 ${isPaused ? 'bg-yellow-500' : 'bg-blue-500'}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-500">
-            {isPaused ? 'Paused' : 'Playing preview...'} (first 500 characters)
+      {audioUrl && (
+        <div className="space-y-2">
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            controls
+            className="w-full h-10 rounded-lg"
+            preload="metadata"
+          >
+            Your browser does not support the audio element.
+          </audio>
+          <p className="text-xs text-muted-foreground">
+            Preview of first {wordCount} words using selected voice settings
           </p>
         </div>
       )}
 
-      {!isPlaying && !canPlay && (
-        <p className="text-xs text-gray-500">Enter text and select a voice to hear a preview</p>
+      {error && (
+        <p className="text-xs text-destructive">{error}</p>
+      )}
+
+      {!canPreview && !isGenerating && (
+        <p className="text-xs text-muted-foreground">
+          Enter text and select an engine and voice to preview the first few words
+        </p>
       )}
     </div>
   )
@@ -179,18 +175,15 @@ function PlayIcon() {
   )
 }
 
-function PauseIcon() {
+function LoaderIcon() {
   return (
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-      <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
-    </svg>
-  )
-}
-
-function StopIcon() {
-  return (
-    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-      <path d="M5.25 3A2.25 2.25 0 003 5.25v9.5A2.25 2.25 0 005.25 17h9.5A2.25 2.25 0 0017 14.75v-9.5A2.25 2.25 0 0014.75 3h-9.5z" />
+    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
     </svg>
   )
 }
