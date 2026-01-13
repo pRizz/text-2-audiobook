@@ -37,6 +37,27 @@ export function PreviewPlayer({ text, engine, voice, rate, pitch, disabled }: Pr
     }
   }, [audioUrl])
 
+  // Auto-play when audio URL is set and element is ready
+  useEffect(() => {
+    if (!audioUrl || !audioRef.current) return
+
+    const audioElement = audioRef.current
+
+    const handleCanPlay = () => {
+      audioElement.play().catch((e) => {
+        console.error('Failed to play preview:', e)
+        setError('Failed to play audio')
+      })
+    }
+
+    audioElement.addEventListener('canplay', handleCanPlay)
+    audioElement.load()
+
+    return () => {
+      audioElement.removeEventListener('canplay', handleCanPlay)
+    }
+  }, [audioUrl])
+
   const handlePreview = useCallback(async () => {
     if (!engine || !voice || !previewText.trim()) return
 
@@ -74,15 +95,6 @@ export function PreviewPlayer({ text, engine, voice, rate, pitch, disabled }: Pr
       const wavBlob = pcmToWav(audio)
       const url = URL.createObjectURL(wavBlob)
       setAudioUrl(url)
-
-      // Auto-play when ready
-      if (audioRef.current) {
-        audioRef.current.load()
-        audioRef.current.play().catch((e) => {
-          console.error('Failed to play preview:', e)
-          setError('Failed to play audio')
-        })
-      }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error('Preview generation failed:', error)
