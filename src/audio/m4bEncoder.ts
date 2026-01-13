@@ -57,6 +57,12 @@ interface EncodedChunk {
   isKeyframe: boolean
 }
 
+interface EncodedAudioResult {
+  chunks: EncodedChunk[]
+  processedAudio: PcmAudio
+  decoderConfig: AudioDecoderConfig | null
+}
+
 /**
  * Encodes PCM audio to M4B format with chapter metadata
  * 
@@ -83,7 +89,7 @@ export async function encodeToM4b(
   onProgress(5)
 
   // Step 1: Encode PCM to AAC using WebCodecs (includes resampling if needed)
-  const { chunks: encodedChunks, processedAudio } = await encodePcmToAac(audio, (p) => {
+  const { chunks: encodedChunks, processedAudio, decoderConfig } = await encodePcmToAac(audio, (p) => {
     onProgress(5 + p * 0.6) // 5-65%
   })
 
@@ -94,6 +100,7 @@ export async function encodeToM4b(
     encodedChunks,
     processedAudio,
     chapters,
+    decoderConfig,
     (p) => {
       onProgress(65 + p * 0.35) // 65-100%
     }
@@ -166,7 +173,7 @@ async function resampleAudio(
 async function encodePcmToAac(
   audio: PcmAudio,
   onProgress: (percent: number) => void
-): Promise<{ chunks: EncodedChunk[]; processedAudio: PcmAudio }> {
+): Promise<EncodedAudioResult> {
   // AAC encoder only supports 44100 and 48000 Hz
   const targetSampleRate = 48000
   let processedAudio = audio
@@ -185,6 +192,7 @@ async function encodePcmToAac(
     const totalDuration = processedAudio.samples.length / processedAudio.sampleRate / processedAudio.channels
     let lastTimestamp = 0
     let isFlushing = false
+    let decoderConfig: AudioDecoderConfig | null = null
 
     // Configure AudioEncoder for AAC
     const config: AudioEncoderConfig = {
@@ -195,7 +203,11 @@ async function encodePcmToAac(
     }
 
     const encoder = new AudioEncoder({
-      output: (chunk, _metadata) => {
+      output: (chunk, metadata) => {
+        // Capture decoder config from first chunk's metadata
+        if (metadata && metadata.decoderConfig && !decoderConfig) {
+          decoderConfig = metadata.decoderConfig
+        }
         const data = new Uint8Array(chunk.byteLength)
         chunk.copyTo(data)
         
@@ -243,7 +255,7 @@ async function encodePcmToAac(
         encoder.flush()
           .then(() => {
             onProgress(100)
-            resolve({ chunks, processedAudio })
+            resolve({ chunks, processedAudio, decoderConfig })
           })
           .catch((error) => {
             reject(error)
@@ -305,25 +317,19 @@ async function muxAacToM4b(
   encodedChunks: EncodedChunk[],
   audio: PcmAudio,
   chapters: Chapter[],
+  decoderConfig: AudioDecoderConfig | null,
   onProgress: (percent: number) => void
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
+      if (encodedChunks.length === 0) {
+        reject(new Error('No encoded AAC chunks to mux'))
+        return
+      }
+
       const file = createFile()
-      const outputChunks: Uint8Array[] = []
 
       // Set up file event handlers
-      file.onReady = (_info) => {
-        onProgress(20)
-      }
-
-      file.onSegment = (_id, _user, buffer) => {
-        // Convert ArrayBuffer to Uint8Array if needed
-        const uint8Buffer = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
-        outputChunks.push(uint8Buffer)
-        onProgress(40 + (outputChunks.length / encodedChunks.length) * 30)
-      }
-
       file.onError = (error) => {
         reject(new Error(`MP4 muxing failed: ${error}`))
       }
@@ -332,24 +338,44 @@ async function muxAacToM4b(
       const totalDurationUs = (audio.samples.length / audio.sampleRate / audio.channels) * 1_000_000
       const timescale = audio.sampleRate // Use sample rate as timescale
 
-      // Create AAC decoder config (ESDS box)
-      // AAC-LC, 48kHz, mono
-      // Note: mp4box.js should handle ESDS generation automatically based on track metadata,
-      // but we provide a basic config. For 48kHz: 0x13 0x90 (object type 2, sample rate 3, mono)
-      const aacConfig = new Uint8Array([0x13, 0x90])
+      // Use decoder config from encoder if available, otherwise create a basic one
+      let description: Uint8Array | null = null
+      if (decoderConfig?.description) {
+        // Use the actual decoder config from the encoder
+        const desc = decoderConfig.description
+        if (desc instanceof ArrayBuffer) {
+          description = new Uint8Array(desc)
+        } else if (desc instanceof SharedArrayBuffer) {
+          description = new Uint8Array(desc)
+        } else {
+          // ArrayBufferView (TypedArray) - convert to ArrayBuffer first
+          const buffer = desc instanceof DataView 
+            ? desc.buffer 
+            : (desc as ArrayBufferView).buffer
+          description = new Uint8Array(buffer, desc.byteOffset, desc.byteLength)
+        }
+      } else {
+        // Fallback: create a basic AAC-LC config for 48kHz mono
+        // AudioSpecificConfig: 0x13 0x90 (object type 2, sample rate 3, mono)
+        description = new Uint8Array([0x13, 0x90])
+      }
 
       // Add audio track
       // Note: mp4box.js API for creating tracks from scratch is limited
-      // We'll use a simplified approach
-      const trackId = file.addTrack({
+      const trackOptions: any = {
         timescale: timescale,
         duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
         nb_samples: encodedChunks.length,
         type: 'audio',
         hdlr: 'soun',
         codec: 'mp4a.40.2', // AAC-LC
-        description: aacConfig,
-      } as any) // Type assertion needed due to strict typing
+      }
+      
+      if (description) {
+        trackOptions.description = description
+      }
+      
+      const trackId = file.addTrack(trackOptions)
 
       onProgress(10)
 
@@ -376,8 +402,6 @@ async function muxAacToM4b(
         } as any) // Type assertion needed
       }
 
-      onProgress(70)
-
       // Note: Chapter metadata addition is complex with mp4box.js
       // For now, we'll create the M4B file without chapters
       // Chapters can be added in a future update using proper MP4 box structure
@@ -386,32 +410,30 @@ async function muxAacToM4b(
         console.info(`Detected ${chapters.length} chapters, but chapter metadata not yet implemented in mp4box.js muxer`)
       }
 
-      onProgress(85)
+      onProgress(70)
 
-      // Save the file - this triggers the onSegment callbacks
-      file.save('audiobook.m4b')
+      // Flush to finalize the file structure
+      file.flush()
 
-      // Wait a bit for all segments to be processed
-      setTimeout(() => {
-        onProgress(95)
-
-        // Combine all output chunks
-        if (outputChunks.length === 0) {
-          reject(new Error('No MP4 data generated'))
+      // Get the complete MP4 file as ArrayBuffer
+      try {
+        const arrayBuffer = file.getBuffer()
+        
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          reject(new Error('No MP4 data generated: getBuffer returned empty buffer'))
           return
         }
 
-        const totalLength = outputChunks.reduce((sum, chunk) => sum + chunk.length, 0)
-        const combined = new Uint8Array(totalLength)
-        let offset = 0
-        for (const chunk of outputChunks) {
-          combined.set(chunk, offset)
-          offset += chunk.length
-        }
-
+        onProgress(95)
+        
+        // Create blob from the complete file
+        const blob = new Blob([arrayBuffer], { type: 'audio/mp4' })
+        
         onProgress(100)
-        resolve(new Blob([combined], { type: 'audio/mp4' }))
-      }, 200)
+        resolve(blob)
+      } catch (error) {
+        reject(new Error(`MP4 buffer retrieval failed: ${error instanceof Error ? error.message : String(error)}`))
+      }
     } catch (error) {
       reject(error)
     }

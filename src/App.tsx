@@ -32,8 +32,6 @@ function App() {
   const [chapterMode, setChapterMode] = useState(false)
   const [chapters, setChapters] = useState<Chapter[]>([])
 
-  // Output format state
-  const [outputFormat, setOutputFormat] = useState<'mp3' | 'm4b'>('mp3')
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false)
@@ -152,6 +150,18 @@ function App() {
   const handleDownloadMp3 = useCallback(async () => {
     if (!pcmAudio) return
 
+    // If blob already exists, just download it
+    if (mp3Blob) {
+      const url = URL.createObjectURL(mp3Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'audiobook.mp3'
+      a.click()
+      URL.revokeObjectURL(url)
+      return
+    }
+
+    // Otherwise, encode and download
     setIsEncodingMp3(true)
     try {
       const blob = await encodeToMp3(pcmAudio, (p) => {
@@ -177,11 +187,23 @@ function App() {
       setIsEncodingMp3(false)
       setProgress(null)
     }
-  }, [pcmAudio])
+  }, [pcmAudio, mp3Blob])
 
   const handleDownloadM4b = useCallback(async () => {
     if (!pcmAudio) return
 
+    // If blob already exists, just download it
+    if (m4bBlob) {
+      const url = URL.createObjectURL(m4bBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'audiobook.m4b'
+      a.click()
+      URL.revokeObjectURL(url)
+      return
+    }
+
+    // Otherwise, encode and download
     setIsEncodingM4b(true)
     try {
       const blob = await encodeToM4b(pcmAudio, chapters, (p) => {
@@ -207,7 +229,7 @@ function App() {
       setIsEncodingM4b(false)
       setProgress(null)
     }
-  }, [pcmAudio, chapters])
+  }, [pcmAudio, chapters, m4bBlob])
 
   const currentEngineInfo = engines.find(e => e.id === selectedEngineId)
   const canExport = currentEngineInfo?.supportsExport ?? false
@@ -267,7 +289,6 @@ function App() {
                   canDownload={!!pcmAudio}
                   m4bSupported={m4bSupported}
                   chapters={chapters}
-                  preferredFormat={outputFormat}
                 />
               </div>
             )}
@@ -312,11 +333,7 @@ function App() {
 
             {/* Output Format */}
             <div className="glass-panel p-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-              <OutputFormatSelector
-                format={outputFormat}
-                onFormatChange={setOutputFormat}
-                m4bSupported={m4bSupported}
-              />
+              <OutputFormatSelector m4bSupported={m4bSupported} />
             </div>
 
             {/* Generate Button */}

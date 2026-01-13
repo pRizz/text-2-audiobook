@@ -16,7 +16,6 @@ interface OutputInfoProps {
   canDownload?: boolean
   m4bSupported?: boolean
   chapters?: Chapter[]
-  preferredFormat?: 'mp3' | 'm4b'
 }
 
 function formatBytes(bytes: number): string {
@@ -38,7 +37,6 @@ export function OutputInfo({
   canDownload = false,
   m4bSupported = false,
   chapters = [],
-  preferredFormat = 'mp3',
 }: OutputInfoProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -131,17 +129,12 @@ export function OutputInfo({
               disabled={!canDownload || isBusy}
               className={`px-4 py-2.5 font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
                 canDownload && !isBusy
-                  ? preferredFormat === 'mp3'
-                    ? 'bg-primary text-primary-foreground shadow-md hover:shadow-lg glow-effect hover:-translate-y-0.5 active:translate-y-0'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
+                  ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
                   : 'bg-secondary text-muted-foreground cursor-not-allowed opacity-50'
               }`}
             >
               <DownloadIcon />
-              {isEncodingMp3 ? 'Encoding...' : 'Download MP3'}
-              {preferredFormat === 'mp3' && (
-                <span className="text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded">Preferred</span>
-              )}
+              {isEncodingMp3 ? 'Encoding...' : mp3Blob ? 'Download MP3' : 'Generate MP3'}
               {mp3Blob && <span className="text-xs opacity-80">({formatBytes(mp3Blob.size)})</span>}
             </button>
 
@@ -150,17 +143,12 @@ export function OutputInfo({
               disabled={!canDownload || !m4bSupported || isBusy}
               className={`px-4 py-2.5 font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
                 canDownload && m4bSupported && !isBusy
-                  ? preferredFormat === 'm4b'
-                    ? 'bg-primary text-primary-foreground shadow-md hover:shadow-lg glow-effect hover:-translate-y-0.5 active:translate-y-0'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
+                  ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50'
                   : 'bg-secondary text-muted-foreground cursor-not-allowed opacity-50'
               }`}
             >
               <DownloadIcon />
-              {isEncodingM4b ? 'Encoding...' : 'Download M4B'}
-              {preferredFormat === 'm4b' && (
-                <span className="text-xs bg-primary-foreground/20 px-1.5 py-0.5 rounded">Preferred</span>
-              )}
+              {isEncodingM4b ? 'Encoding...' : m4bBlob ? 'Download M4B' : 'Generate M4B'}
               {m4bBlob && <span className="text-xs opacity-80">({formatBytes(m4bBlob.size)})</span>}
             </button>
           </div>
