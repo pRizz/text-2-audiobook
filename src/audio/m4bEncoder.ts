@@ -317,7 +317,7 @@ async function muxAacToM4b(
   encodedChunks: EncodedChunk[],
   audio: PcmAudio,
   chapters: Chapter[],
-  decoderConfig: AudioDecoderConfig | null,
+  _decoderConfig: AudioDecoderConfig | null, // Reserved for future esds box creation
   onProgress: (percent: number) => void
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -327,7 +327,7 @@ async function muxAacToM4b(
         return
       }
 
-      const file = createFile()
+      const file = createFile(true) // keepMdatData=true to retain audio samples in buffer
 
       // Set up file event handlers
       file.onError = (error) => {
@@ -338,41 +338,17 @@ async function muxAacToM4b(
       const totalDurationUs = (audio.samples.length / audio.sampleRate / audio.channels) * 1_000_000
       const timescale = audio.sampleRate // Use sample rate as timescale
 
-      // Use decoder config from encoder if available, otherwise create a basic one
-      let description: Uint8Array | null = null
-      if (decoderConfig?.description) {
-        // Use the actual decoder config from the encoder
-        const desc = decoderConfig.description
-        if (desc instanceof ArrayBuffer) {
-          description = new Uint8Array(desc)
-        } else if (desc instanceof SharedArrayBuffer) {
-          description = new Uint8Array(desc)
-        } else {
-          // ArrayBufferView (TypedArray) - convert to ArrayBuffer first
-          const buffer = desc instanceof DataView 
-            ? desc.buffer 
-            : (desc as ArrayBufferView).buffer
-          description = new Uint8Array(buffer, desc.byteOffset, desc.byteLength)
-        }
-      } else {
-        // Fallback: create a basic AAC-LC config for 48kHz mono
-        // AudioSpecificConfig: 0x13 0x90 (object type 2, sample rate 3, mono)
-        description = new Uint8Array([0x13, 0x90])
-      }
-
-      // Add audio track
-      // Note: mp4box.js API for creating tracks from scratch is limited
+      // Add audio track using mp4box.js IsoFileOptions
       const trackOptions: any = {
         timescale: timescale,
         duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
+        media_duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
         nb_samples: encodedChunks.length,
-        type: 'audio',
+        type: 'mp4a', // SampleEntryFourCC for AAC
         hdlr: 'soun',
-        codec: 'mp4a.40.2', // AAC-LC
-      }
-      
-      if (description) {
-        trackOptions.description = description
+        samplerate: audio.sampleRate,
+        channel_count: audio.channels,
+        samplesize: 16,
       }
       
       const trackId = file.addTrack(trackOptions)
@@ -399,7 +375,7 @@ async function muxAacToM4b(
           dts: dtsInTimescale,
           cts: dtsInTimescale,
           is_sync: chunk.isKeyframe || i === 0,
-        } as any) // Type assertion needed
+        } as any)
       }
 
       // Note: Chapter metadata addition is complex with mp4box.js
@@ -415,9 +391,16 @@ async function muxAacToM4b(
       // Flush to finalize the file structure
       file.flush()
 
-      // Get the complete MP4 file as ArrayBuffer
+      // Get the complete MP4 file as ArrayBuffer using getBuffer() and write()
       try {
-        const arrayBuffer = file.getBuffer()
+        // Get the DataStream and write the file to it
+        const dataStream = file.getBuffer()
+        file.write(dataStream)
+        
+        // Extract the ArrayBuffer from DataStream
+        const streamBuffer = (dataStream as any).buffer as ArrayBuffer
+        const position = (dataStream as any).position || (dataStream as any).byteLength || streamBuffer.byteLength
+        const arrayBuffer = streamBuffer.slice(0, position)
         
         if (!arrayBuffer || arrayBuffer.byteLength === 0) {
           reject(new Error('No MP4 data generated: getBuffer returned empty buffer'))
