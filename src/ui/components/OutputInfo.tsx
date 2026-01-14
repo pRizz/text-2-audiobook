@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { PcmAudio } from '../../tts/engine'
 import { formatDuration, getDurationSeconds, pcmToWav } from '../../audio/pcm'
 import { Chapter } from '../../chapters/parseChapters'
+import { formatBytes } from '../../utils/format'
 
 interface OutputInfoProps {
   pcmAudio: PcmAudio | null
@@ -18,10 +19,32 @@ interface OutputInfoProps {
   chapters?: Chapter[]
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+function CompressionChip({
+  uncompressedBytes,
+  compressedBytes,
+  label,
+}: {
+  uncompressedBytes: number
+  compressedBytes: number
+  label: 'MP3' | 'M4B'
+}) {
+  if (!Number.isFinite(uncompressedBytes) || uncompressedBytes <= 0) return null
+  if (!Number.isFinite(compressedBytes) || compressedBytes <= 0) return null
+
+  const ratio = uncompressedBytes / compressedBytes
+
+  return (
+    <div
+      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-gray-800 border border-gray-600 text-xs text-gray-200"
+      title={`${label} compression: ${ratio.toFixed(2)}x`}
+    >
+      <span className="font-medium text-gray-100">PCM</span>
+      <span className="text-gray-400">{formatBytes(uncompressedBytes)}</span>
+      <span className="text-gray-500">→</span>
+      <span className="font-medium text-gray-100">{label}</span>
+      <span className="text-gray-300">{formatBytes(compressedBytes)}</span>
+    </div>
+  )
 }
 
 export function OutputInfo({
@@ -63,6 +86,7 @@ export function OutputInfo({
 
   const duration = pcmAudio ? getDurationSeconds(pcmAudio) : 0
   const isBusy = isEncodingMp3 || isEncodingM4b
+  const uncompressedBytes = pcmAudio?.samples.byteLength ?? 0
 
   return (
     <div className="glass-panel p-6 space-y-4">
@@ -118,6 +142,25 @@ export function OutputInfo({
           </>
         )}
       </div>
+
+      {(mp3Blob || m4bBlob) && pcmAudio && (
+        <div className="flex flex-wrap gap-2">
+          {mp3Blob && (
+            <CompressionChip
+              uncompressedBytes={uncompressedBytes}
+              compressedBytes={mp3Blob.size}
+              label="MP3"
+            />
+          )}
+          {m4bBlob && (
+            <CompressionChip
+              uncompressedBytes={uncompressedBytes}
+              compressedBytes={m4bBlob.size}
+              label="M4B"
+            />
+          )}
+        </div>
+      )}
 
       {/* Download Buttons */}
       {pcmAudio && onDownloadMp3 && onDownloadM4b && (

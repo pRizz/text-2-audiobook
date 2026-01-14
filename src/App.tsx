@@ -171,6 +171,7 @@ function App() {
           percent: p,
           currentChunk: 0,
           totalChunks: 1,
+          maybeAudioBytesHeld: pcmAudio.samples.byteLength,
         })
       })
       setMp3Blob(blob)
@@ -213,6 +214,7 @@ function App() {
           percent: p,
           currentChunk: 0,
           totalChunks: 1,
+          maybeAudioBytesHeld: pcmAudio.samples.byteLength,
         })
       })
       setM4bBlob(blob)

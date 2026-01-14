@@ -1,11 +1,12 @@
 import { Progress } from '../../tts/engine'
+import { formatBytes } from '../../utils/format'
 
 interface ProgressBarProps {
   progress: Progress
 }
 
 export function ProgressBar({ progress }: ProgressBarProps) {
-  const { stageLabel, percent, currentChunk, totalChunks, stage } = progress
+  const { stageLabel, percent, currentChunk, totalChunks, stage, maybeAudioBytesHeld } = progress
 
   const stageColors: Record<string, string> = {
     parsing: 'bg-blue-500',
@@ -32,6 +33,12 @@ export function ProgressBar({ progress }: ProgressBarProps) {
       {totalChunks > 1 && (
         <div className="text-xs text-gray-500 text-center">
           Chunk {currentChunk} of {totalChunks}
+        </div>
+      )}
+
+      {typeof maybeAudioBytesHeld === 'number' && maybeAudioBytesHeld > 0 && (
+        <div className="text-xs text-gray-500 text-center">
+          Audio buffered: {formatBytes(maybeAudioBytesHeld)}
         </div>
       )}
 

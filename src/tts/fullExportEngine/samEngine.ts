@@ -60,12 +60,14 @@ export class SamTtsEngine implements TtsEngine {
       percent: 5,
       currentChunk: 0,
       totalChunks: 1,
+      maybeAudioBytesHeld: 0,
     })
 
     // Split text into sentences for progress tracking
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text]
     const chunks = sentences.length > 0 ? sentences : [text]
     const audioChunks: Float32Array[] = []
+    let totalSamplesBuffered = 0
 
     const voiceParams = this.getVoiceParams(opts.voice.id)
     // Adjust speed based on rate (SAM speed is inverse - higher = slower)
@@ -87,6 +89,7 @@ export class SamTtsEngine implements TtsEngine {
         percent: 5 + (90 * (i + 1)) / chunks.length,
         currentChunk: i + 1,
         totalChunks: chunks.length,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
       })
 
       try {
@@ -101,13 +104,24 @@ export class SamTtsEngine implements TtsEngine {
         const buffer = sam.buf32(chunk)
         if (buffer && buffer.length > 0) {
           audioChunks.push(buffer)
+          totalSamplesBuffered += buffer.length
           // Add a small pause between sentences
           const pauseSamples = new Float32Array(Math.floor(0.2 * 22050))
           audioChunks.push(pauseSamples)
+          totalSamplesBuffered += pauseSamples.length
         }
       } catch (e) {
         console.warn('SAM failed to synthesize chunk:', chunk, e)
       }
+
+      onProgress({
+        stage: 'synthesizing',
+        stageLabel: `Synthesizing with SAM (${i + 1}/${chunks.length})...`,
+        percent: 5 + (90 * (i + 1)) / chunks.length,
+        currentChunk: i + 1,
+        totalChunks: chunks.length,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
+      })
 
       // Yield to UI
       await new Promise((resolve) => setTimeout(resolve, 10))
@@ -119,6 +133,7 @@ export class SamTtsEngine implements TtsEngine {
       percent: 98,
       currentChunk: chunks.length,
       totalChunks: chunks.length,
+      maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
     })
 
     // Concatenate all chunks
@@ -136,6 +151,7 @@ export class SamTtsEngine implements TtsEngine {
       percent: 100,
       currentChunk: chunks.length,
       totalChunks: chunks.length,
+      maybeAudioBytesHeld: samples.byteLength,
     })
 
     return {

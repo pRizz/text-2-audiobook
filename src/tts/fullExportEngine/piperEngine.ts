@@ -71,10 +71,12 @@ export class PiperTtsEngine implements TtsEngine {
       percent: 5,
       currentChunk: 0,
       totalChunks,
+      maybeAudioBytesHeld: 0,
     })
 
     const sampleRate = 22050
     const audioChunks: Float32Array[] = []
+    let totalSamplesBuffered = 0
 
     for (let i = 0; i < chunks.length; i++) {
       if (signal.aborted) {
@@ -88,11 +90,22 @@ export class PiperTtsEngine implements TtsEngine {
         percent: 5 + (90 * (i + 1)) / totalChunks,
         currentChunk: i + 1,
         totalChunks,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
       })
 
       // Generate audio for this chunk
       const chunkAudio = await this.synthesizeChunk(chunk, opts, sampleRate)
       audioChunks.push(chunkAudio)
+      totalSamplesBuffered += chunkAudio.length
+
+      onProgress({
+        stage: 'synthesizing',
+        stageLabel: `Synthesizing chunk ${i + 1} of ${totalChunks}...`,
+        percent: 5 + (90 * (i + 1)) / totalChunks,
+        currentChunk: i + 1,
+        totalChunks,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
+      })
 
       // Small delay to allow UI updates
       await new Promise((resolve) => setTimeout(resolve, 10))
@@ -104,6 +117,7 @@ export class PiperTtsEngine implements TtsEngine {
       percent: 95,
       currentChunk: totalChunks,
       totalChunks,
+      maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
     })
 
     // Concatenate all chunks
@@ -121,6 +135,7 @@ export class PiperTtsEngine implements TtsEngine {
       percent: 100,
       currentChunk: totalChunks,
       totalChunks,
+      maybeAudioBytesHeld: samples.byteLength,
     })
 
     return {

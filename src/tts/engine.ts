@@ -22,6 +22,14 @@ export interface Progress {
   percent: number
   currentChunk: number
   totalChunks: number
+  /**
+   * Approximate amount of audio data currently buffered in-memory (bytes).
+   *
+   * For export-capable engines this usually reflects PCM samples accumulated
+   * so far while synthesizing. During encoding, callers may set this to reflect
+   * the source PCM (and/or other intermediate buffers) still held in memory.
+   */
+  maybeAudioBytesHeld?: number
 }
 
 export type EngineMode = 'full' | 'lite' | 'unknown'

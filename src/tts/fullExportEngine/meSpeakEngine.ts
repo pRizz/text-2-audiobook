@@ -127,6 +127,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
         percent: 0,
         currentChunk: 0,
         totalChunks: 1,
+        maybeAudioBytesHeld: 0,
       })
       await this.loadMeSpeak()
     }
@@ -138,6 +139,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
       percent: 5,
       currentChunk: 0,
       totalChunks: 1,
+      maybeAudioBytesHeld: 0,
     })
     await this.loadVoice(opts.voice.id)
 
@@ -145,6 +147,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text]
     const chunks = sentences.length > 0 ? sentences : [text]
     const audioChunks: Float32Array[] = []
+    let totalSamplesBuffered = 0
 
     // meSpeak speed: 80-450 wpm, default 175
     const speed = Math.round(175 * opts.rate)
@@ -165,6 +168,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
         percent: 10 + (85 * (i + 1)) / chunks.length,
         currentChunk: i + 1,
         totalChunks: chunks.length,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
       })
 
       try {
@@ -185,10 +189,20 @@ export class MeSpeakTtsEngine implements TtsEngine {
             float32[j] = audioData[j] / 128 // Normalize to -1 to 1
           }
           audioChunks.push(float32)
+          totalSamplesBuffered += float32.length
         }
       } catch (e) {
         console.warn('meSpeak failed to synthesize chunk:', chunk, e)
       }
+
+      onProgress({
+        stage: 'synthesizing',
+        stageLabel: `Synthesizing with eSpeak (${i + 1}/${chunks.length})...`,
+        percent: 10 + (85 * (i + 1)) / chunks.length,
+        currentChunk: i + 1,
+        totalChunks: chunks.length,
+        maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
+      })
 
       // Yield to UI
       await new Promise((resolve) => setTimeout(resolve, 10))
@@ -200,6 +214,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
       percent: 98,
       currentChunk: chunks.length,
       totalChunks: chunks.length,
+      maybeAudioBytesHeld: totalSamplesBuffered * Float32Array.BYTES_PER_ELEMENT,
     })
 
     // Concatenate all chunks
@@ -217,6 +232,7 @@ export class MeSpeakTtsEngine implements TtsEngine {
       percent: 100,
       currentChunk: chunks.length,
       totalChunks: chunks.length,
+      maybeAudioBytesHeld: samples.byteLength,
     })
 
     return {
