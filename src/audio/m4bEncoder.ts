@@ -1,6 +1,6 @@
 import { PcmAudio } from '../tts/engine'
 import { Chapter } from '../chapters/parseChapters'
-import { createFile } from 'mp4box'
+import { createFile, type DataStream, type ISOFile, type IsoFileOptions } from 'mp4box'
 
 /**
  * M4B Encoder using WebCodecs AudioEncoder + mp4box.js
@@ -62,6 +62,8 @@ interface EncodedAudioResult {
   processedAudio: PcmAudio
   decoderConfig: AudioDecoderConfig | null
 }
+
+type AddSampleOptions = Parameters<ISOFile['addSample']>[2]
 
 /**
  * Encodes PCM audio to M4B format with chapter metadata
@@ -330,8 +332,8 @@ async function muxAacToM4b(
       const file = createFile(true) // keepMdatData=true to retain audio samples in buffer
 
       // Set up file event handlers
-      file.onError = (error) => {
-        reject(new Error(`MP4 muxing failed: ${error}`))
+      file.onError = (module, message) => {
+        reject(new Error(`MP4 muxing failed (${module}): ${message}`))
       }
 
       // Calculate total duration in microseconds
@@ -339,8 +341,8 @@ async function muxAacToM4b(
       const timescale = audio.sampleRate // Use sample rate as timescale
 
       // Add audio track using mp4box.js IsoFileOptions
-      const trackOptions: any = {
-        timescale: timescale,
+      const trackOptions: IsoFileOptions & { nb_samples: number } = {
+        timescale,
         duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
         media_duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
         nb_samples: encodedChunks.length,
@@ -370,12 +372,14 @@ async function muxAacToM4b(
         const sampleData = new Uint8Array(buffer)
         sampleData.set(chunk.data)
 
-        file.addSample(trackId, sampleData, {
+        const addSampleOptions: NonNullable<AddSampleOptions> = {
           duration: durationInTimescale,
           dts: dtsInTimescale,
           cts: dtsInTimescale,
           is_sync: chunk.isKeyframe || i === 0,
-        } as any)
+        }
+
+        file.addSample(trackId, sampleData, addSampleOptions)
       }
 
       // Note: Chapter metadata addition is complex with mp4box.js
@@ -394,12 +398,12 @@ async function muxAacToM4b(
       // Get the complete MP4 file as ArrayBuffer using getBuffer() and write()
       try {
         // Get the DataStream and write the file to it
-        const dataStream = file.getBuffer()
+        const dataStream: DataStream = file.getBuffer()
         file.write(dataStream)
         
         // Extract the ArrayBuffer from DataStream
-        const streamBuffer = (dataStream as any).buffer as ArrayBuffer
-        const position = (dataStream as any).position || (dataStream as any).byteLength || streamBuffer.byteLength
+        const streamBuffer = dataStream.buffer
+        const position = dataStream.getPosition()
         const arrayBuffer = streamBuffer.slice(0, position)
         
         if (!arrayBuffer || arrayBuffer.byteLength === 0) {
