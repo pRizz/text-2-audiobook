@@ -1,6 +1,7 @@
 import { PcmAudio } from '../tts/engine'
 import { Chapter } from '../chapters/parseChapters'
 import { createFile, type DataStream, type ISOFile, type IsoFileOptions } from 'mp4box'
+import { framesToTimestampUs, microsecondsToTimescaleUnits } from './time'
 
 /**
  * M4B Encoder using WebCodecs AudioEncoder + mp4box.js
@@ -212,14 +213,17 @@ async function encodePcmToAac(
         }
         const data = new Uint8Array(chunk.byteLength)
         chunk.copyTo(data)
-        
-        // Calculate duration from timestamp difference
-        const duration = chunk.timestamp - lastTimestamp
+
+        // Prefer encoder-provided duration. Fallback to timestamp deltas.
+        const durationFromEncoder =
+          typeof chunk.duration === 'number' && Number.isFinite(chunk.duration) ? chunk.duration : 0
+        const durationFromDelta = chunk.timestamp - lastTimestamp
+        const durationUs = durationFromEncoder > 0 ? durationFromEncoder : durationFromDelta
         lastTimestamp = chunk.timestamp
 
         chunks.push({
           timestamp: chunk.timestamp,
-          duration: duration || (1000000 / processedAudio.sampleRate), // fallback to sample duration
+          duration: durationUs || Math.round(1_000_000 / processedAudio.sampleRate), // fallback
           data,
           isKeyframe: chunk.type === 'key',
         })
@@ -227,7 +231,7 @@ async function encodePcmToAac(
         // Estimate progress based on encoded duration
         // Adjust progress range: resamplingProgress-100% (resamplingProgress% is after resampling)
         if (chunk.timestamp > 0) {
-          const encodedSeconds = chunk.timestamp / 1_000_000 // microseconds to seconds
+          const encodedSeconds = (chunk.timestamp + durationUs) / 1_000_000 // microseconds to seconds
           const encodingProgress = (encodedSeconds / totalDuration) * (100 - resamplingProgress)
           const progress = Math.min(100, resamplingProgress + encodingProgress)
           onProgress(progress)
@@ -266,26 +270,21 @@ async function encodePcmToAac(
       }
 
       const end = Math.min(offset + chunkSize, processedAudio.samples.length)
-      const chunkSamples = processedAudio.samples.slice(offset, end)
+      const rawChunkSamples = processedAudio.samples.slice(offset, end)
+      const remainder = rawChunkSamples.length % processedAudio.channels
+      const chunkSamples = remainder === 0 ? rawChunkSamples : rawChunkSamples.subarray(0, rawChunkSamples.length - remainder)
       const frameCount = chunkSamples.length / processedAudio.channels
 
       // Create AudioData from PCM samples
-      // Note: AudioData expects planar format for multi-channel
-      let audioDataBuffer: ArrayBuffer
-      if (processedAudio.channels === 1) {
-        audioDataBuffer = chunkSamples.buffer
-      } else {
-        // Convert interleaved to planar (not needed for mono, but for future stereo support)
-        audioDataBuffer = chunkSamples.buffer
-      }
-
+      // Our PCM is interleaved, so use interleaved AudioData format.
       const audioData = new AudioData({
-        format: 'f32-planar',
+        format: 'f32',
         sampleRate: processedAudio.sampleRate,
         numberOfFrames: frameCount,
         numberOfChannels: processedAudio.channels,
-        timestamp: sampleTimestamp * 1_000_000, // microseconds
-        data: audioDataBuffer,
+        // WebCodecs timestamps are microseconds.
+        timestamp: framesToTimestampUs(sampleTimestamp, processedAudio.sampleRate),
+        data: chunkSamples,
       })
 
       // Check again before encoding (in case flush was called while we were preparing the data)
@@ -343,8 +342,8 @@ async function muxAacToM4b(
       // Add audio track using mp4box.js IsoFileOptions
       const trackOptions: IsoFileOptions = {
         timescale,
-        duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
-        media_duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
+        duration: Math.round((totalDurationUs * timescale) / 1_000_000),
+        media_duration: Math.round((totalDurationUs * timescale) / 1_000_000),
         type: 'mp4a', // SampleEntryFourCC for AAC
         hdlr: 'soun',
         samplerate: audio.sampleRate,
@@ -357,14 +356,12 @@ async function muxAacToM4b(
       onProgress(10)
 
       // Add AAC samples to the track
+      let nextDtsInTimescale = 0
       for (let i = 0; i < encodedChunks.length; i++) {
         const chunk = encodedChunks[i]
-        const prevTimestamp = i > 0 ? encodedChunks[i - 1].timestamp : 0
-        const duration = chunk.duration || (chunk.timestamp - prevTimestamp)
-        
-        // Convert duration to timescale units
-        const durationInTimescale = Math.floor(duration / (1_000_000 / timescale))
-        const dtsInTimescale = Math.floor(chunk.timestamp / (1_000_000 / timescale))
+
+        // Convert duration to timescale units. Use rounded conversion to avoid drift.
+        const durationInTimescale = microsecondsToTimescaleUnits(chunk.duration, timescale)
 
         // Ensure we have a proper ArrayBuffer by creating a copy with a new ArrayBuffer
         const buffer = new ArrayBuffer(chunk.data.length)
@@ -373,12 +370,14 @@ async function muxAacToM4b(
 
         const addSampleOptions: NonNullable<AddSampleOptions> = {
           duration: durationInTimescale,
-          dts: dtsInTimescale,
-          cts: dtsInTimescale,
+          // Force contiguous DTS to prevent gaps (which players render as silence).
+          dts: nextDtsInTimescale,
+          cts: nextDtsInTimescale,
           is_sync: chunk.isKeyframe || i === 0,
         }
 
         file.addSample(trackId, sampleData, addSampleOptions)
+        nextDtsInTimescale += durationInTimescale
       }
 
       // Note: Chapter metadata addition is complex with mp4box.js
