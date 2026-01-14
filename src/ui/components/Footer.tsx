@@ -63,7 +63,7 @@ export function Footer() {
           </p>
           <div className="flex items-center justify-center gap-4">
             <a
-              href={GITHUB_REPO_URL}
+              href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-colors"
