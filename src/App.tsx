@@ -7,6 +7,7 @@ import { ProgressBar } from './ui/components/ProgressBar'
 import { ControlPanel } from './ui/components/ControlPanel'
 import { OutputInfo } from './ui/components/OutputInfo'
 import { OutputFormatSelector } from './ui/components/OutputFormatSelector'
+import { Footer } from './ui/components/Footer'
 import { TtsEngine, Voice, TtsOptions, PcmAudio, Progress, EngineInfo } from './tts/engine'
 import { getAvailableEngines, getEngineById, getDefaultEngine } from './tts/engineFactory'
 import { encodeToMp3 } from './audio/mp3Encoder'
@@ -256,7 +257,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-5">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Column - Text Input */}
           <div className="lg:col-span-2">
@@ -355,10 +356,7 @@ function App() {
         </div>
       </main>
 
-      {/* Footer */}
-      <div className="mt-12 text-center text-sm text-muted-foreground">
-        <p>All processing happens locally in your browser. No data is uploaded.</p>
-      </div>
+      <Footer />
     </div>
   )
 }

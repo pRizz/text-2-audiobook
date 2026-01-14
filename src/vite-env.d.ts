@@ -9,3 +9,7 @@ interface GPU {
 }
 
 interface GPUAdapter {}
+
+declare const __APP_VERSION__: string
+declare const __GIT_HASH__: string
+declare const __BUILD_DATETIME__: string
