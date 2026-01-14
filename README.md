@@ -1,6 +1,15 @@
 # Text to Audiobook
 
+[![Demo](https://img.shields.io/badge/demo-live-blue)](https://prizz.github.io/text-2-audiobook/)
+[![Deploy to GitHub Pages](https://github.com/prizz/text-2-audiobook/actions/workflows/deploy.yml/badge.svg)](https://github.com/prizz/text-2-audiobook/actions/workflows/deploy.yml)
+[![License](https://img.shields.io/github/license/prizz/text-2-audiobook)](LICENSE)
+![Vite](https://img.shields.io/badge/vite-646CFF?logo=vite&logoColor=white)
+![React](https://img.shields.io/badge/react-61DAFB?logo=react&logoColor=0B1F2A)
+![TypeScript](https://img.shields.io/badge/typescript-3178C6?logo=typescript&logoColor=white)
+
 A fully frontend web application that converts text to speech and exports downloadable audio files. All processing happens locally in your browser - no data is uploaded to any server.
+
+**Demo**: https://prizz.github.io/text-2-audiobook/
 
 ## Features
 
