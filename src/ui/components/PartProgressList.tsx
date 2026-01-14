@@ -92,7 +92,7 @@ export function PartProgressList({
           Processing Parts ({parts.length} total)
         </h3>
         <div className="space-y-3">
-          {parts.map((partState, index) => {
+          {parts.map((partState) => {
             const isActive =
               partState.status === 'generating' ||
               partState.status === 'encoding-mp3' ||
