@@ -37,7 +37,25 @@ export class HeadTtsEngine implements TtsEngine {
   async isAvailable(): Promise<boolean> {
     try {
       // Check if the module can be imported
-      await import('@met4citizen/headtts')
+      const { HeadTTS: HeadTTSClass } = await import('@met4citizen/headtts')
+      
+      // Test connection with a short timeout
+      const testInstance = new HeadTTSClass({
+        endpoints: ['webgpu', 'wasm'],
+        languages: ['en-us'],
+        voices: [HEADTTS_VOICES[0].id],
+      })
+      
+      // Try to connect with a timeout
+      await Promise.race([
+        testInstance.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 5000)
+        ),
+      ])
+      
+      // Clean up test instance
+      testInstance.disconnect()
       return true
     } catch {
       return false
@@ -144,22 +162,42 @@ export class HeadTtsEngine implements TtsEngine {
         // HeadTTS uses event-based API
         const audioData = await new Promise<ArrayBuffer>((resolve, reject) => {
           let audioBuffer: ArrayBuffer | null = null
-          const timeout = setTimeout(() => {
-            reject(new Error('HeadTTS synthesis timeout'))
+          let timeoutId: ReturnType<typeof setTimeout> | null = null
+          let resolved = false
+
+          const cleanup = () => {
+            if (timeoutId !== null) {
+              clearTimeout(timeoutId)
+              timeoutId = null
+            }
+            tts.onmessage = null
+            tts.onerror = null
+          }
+
+          timeoutId = setTimeout(() => {
+            if (!resolved) {
+              resolved = true
+              cleanup()
+              reject(new Error('HeadTTS synthesis timeout'))
+            }
           }, 60000) // 60 second timeout
 
           tts.onmessage = (data: HeadTTSMetadata | ArrayBuffer) => {
-            if (data instanceof ArrayBuffer) {
+            if (data instanceof ArrayBuffer && !resolved) {
               audioBuffer = data
-              clearTimeout(timeout)
+              resolved = true
+              cleanup()
               resolve(audioBuffer)
             }
             // Metadata comes first, then audio - we wait for the audio
           }
 
           tts.onerror = (error: Error) => {
-            clearTimeout(timeout)
-            reject(error)
+            if (!resolved) {
+              resolved = true
+              cleanup()
+              reject(error)
+            }
           }
 
           tts.synthesize({ input: chunk })
