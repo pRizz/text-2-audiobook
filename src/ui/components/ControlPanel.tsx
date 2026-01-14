@@ -11,18 +11,8 @@ interface ControlPanelProps {
   m4bSupported: boolean
 }
 
-export function ControlPanel({
-  onGenerate,
-  onCancel,
-  onDownloadMp3: _onDownloadMp3,
-  onDownloadM4b: _onDownloadM4b,
-  isGenerating,
-  isEncodingMp3,
-  isEncodingM4b,
-  canGenerate,
-  canDownload: _canDownload,
-  m4bSupported: _m4bSupported,
-}: ControlPanelProps) {
+export function ControlPanel(props: ControlPanelProps) {
+  const { onGenerate, onCancel, isGenerating, isEncodingMp3, isEncodingM4b, canGenerate } = props
 
   if (isGenerating) {
     return (

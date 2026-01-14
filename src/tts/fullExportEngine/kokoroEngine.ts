@@ -227,7 +227,7 @@ export class KokoroTtsEngine implements TtsEngine {
 
     // Apply rate adjustment by resampling if needed
     let finalSamples = samples
-    let finalSampleRate = sampleRate
+    const finalSampleRate = sampleRate
 
     if (opts.rate !== 1.0) {
       // Simple resampling for speed adjustment

@@ -34,11 +34,16 @@ export class WebSpeechEngine implements TtsEngine {
   }
 
   async synthesizeToPcm(
-    _text: string,
-    _opts: TtsOptions,
-    _onProgress: (p: Progress) => void,
-    _signal: AbortSignal
+    text: string,
+    opts: TtsOptions,
+    onProgress: (p: Progress) => void,
+    signal: AbortSignal
   ): Promise<PcmAudio> {
+    void text
+    void opts
+    void onProgress
+    void signal
+
     // Web Speech API cannot produce PCM audio directly
     // This engine is for preview only
     throw new Error(
