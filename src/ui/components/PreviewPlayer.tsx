@@ -13,8 +13,16 @@ interface PreviewPlayerProps {
 
 // Get first ~25 words for preview
 function getPreviewText(text: string): string {
-  const words = text.trim().split(/\s+/)
-  const previewWords = words.slice(0, 25)
+  const MAX_PREVIEW_CHARACTERS = 1000
+  const MAX_PREVIEW_WORDS = 25
+
+  // Avoid splitting the entire input (can be very slow for large text).
+  const textPrefix = text.slice(0, MAX_PREVIEW_CHARACTERS)
+  const trimmedPrefix = textPrefix.trim()
+  if (trimmedPrefix.length === 0) return ''
+
+  const words = trimmedPrefix.split(/\s+/)
+  const previewWords = words.slice(0, MAX_PREVIEW_WORDS)
   return previewWords.join(' ')
 }
 
@@ -26,7 +34,8 @@ export function PreviewPlayer({ text, engine, voice, rate, pitch, disabled }: Pr
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const previewText = getPreviewText(text)
-  const wordCount = previewText.split(/\s+/).length
+  const trimmedPreviewText = previewText.trim()
+  const wordCount = trimmedPreviewText.length === 0 ? 0 : trimmedPreviewText.split(/\s+/).length
 
   // Cleanup audio URL on unmount
   useEffect(() => {
