@@ -79,20 +79,20 @@ export function PartProgressList({
           <div className="flex-1 text-sm">
             <p className="font-medium text-blue-200 mb-1">Why is the text split into parts?</p>
             <p className="text-blue-300/80 leading-relaxed">
-              Large texts require gigabytes of memory when converted to raw, uncompressed audio, from the text-to-speech engine, which can cause browser crashes and instability. 
-              By splitting the text into manageable parts (~30,000 words each), we process and encode each part separately, 
-              preventing memory errors and allowing you to download each part individually.
+              Large texts require gigabytes of memory when converted to raw, uncompressed audio,
+              from the text-to-speech engine, which can cause browser crashes and instability. By
+              splitting the text into manageable parts (~30,000 words each), we process and encode
+              each part separately, preventing memory errors and allowing you to download each part
+              individually.
             </p>
           </div>
         </div>
       </div>
 
       <div className="glass-panel p-6">
-        <h3 className="text-lg font-medium mb-4">
-          Processing Parts ({parts.length} total)
-        </h3>
+        <h3 className="text-lg font-medium mb-4">Processing Parts ({parts.length} total)</h3>
         <div className="space-y-3">
-          {parts.map((partState, index) => {
+          {parts.map((partState) => {
             const isActive =
               partState.status === 'generating' ||
               partState.status === 'encoding-mp3' ||
@@ -127,9 +127,7 @@ export function PartProgressList({
                       <div className="font-medium">
                         Part {partState.part.partNumber}
                         {isActive && (
-                          <span className="ml-2 text-xs text-primary animate-pulse">
-                            (Active)
-                          </span>
+                          <span className="ml-2 text-xs text-primary animate-pulse">(Active)</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-400">
@@ -144,7 +142,10 @@ export function PartProgressList({
                 {/* Progress Bar */}
                 {partState.progress && (
                   <div className="mb-3">
-                    <ProgressBar progress={partState.progress} elapsedTime={partState.elapsedTime} />
+                    <ProgressBar
+                      progress={partState.progress}
+                      elapsedTime={partState.elapsedTime}
+                    />
                   </div>
                 )}
 
