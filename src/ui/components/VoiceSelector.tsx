@@ -11,16 +11,8 @@ interface VoiceSelectorProps {
   supportsExport: boolean
 }
 
-export function VoiceSelector({
-  voices,
-  selectedVoice,
-  onVoiceChange,
-  rate: _rate,
-  onRateChange: _onRateChange,
-  pitch: _pitch,
-  onPitchChange: _onPitchChange,
-  supportsExport: _supportsExport,
-}: VoiceSelectorProps) {
+export function VoiceSelector(props: VoiceSelectorProps) {
+  const { voices, selectedVoice, onVoiceChange } = props
   // Generate a subtitle based on the selected voice
   const getVoiceSubtitle = (voice: Voice | null): string => {
     if (!voice) return 'Select a voice'
