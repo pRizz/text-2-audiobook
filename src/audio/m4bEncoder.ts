@@ -341,11 +341,10 @@ async function muxAacToM4b(
       const timescale = audio.sampleRate // Use sample rate as timescale
 
       // Add audio track using mp4box.js IsoFileOptions
-      const trackOptions: IsoFileOptions & { nb_samples: number } = {
+      const trackOptions: IsoFileOptions = {
         timescale,
         duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
         media_duration: Math.floor(totalDurationUs / (1_000_000 / timescale)),
-        nb_samples: encodedChunks.length,
         type: 'mp4a', // SampleEntryFourCC for AAC
         hdlr: 'soun',
         samplerate: audio.sampleRate,
