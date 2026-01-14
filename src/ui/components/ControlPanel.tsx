@@ -57,7 +57,7 @@ export function ControlPanel({
           ? 'bg-primary text-primary-foreground shadow-lg glow-effect hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
           : 'bg-secondary text-secondary-foreground cursor-not-allowed opacity-50'
       }`}
-      title={!canGenerate ? 'Enter text and select an export-capable engine' : ''}
+      title={!canGenerate ? 'Enter text and choose a voice' : ''}
     >
       <GearIcon />
       Generate Audiobook

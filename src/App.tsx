@@ -18,6 +18,7 @@ import { splitTextIntoParts } from './utils/textSplitter'
 
 function App() {
   const [text, setText] = useState(gettysburgAddress.trim())
+  const showEngineSelector = false // Temporarily lock to the default engine.
 
   // Engine state
   const [engines, setEngines] = useState<EngineInfo[]>([])
@@ -653,13 +654,15 @@ function App() {
           <div className="space-y-6">
             {/* Voice Settings */}
             <div className="glass-panel p-6 space-y-4 animate-fade-in">
-              <EngineSelector
-                engines={engines}
-                selectedEngineId={selectedEngineId}
-                onEngineChange={handleEngineChange}
-                isLoading={isLoadingEngines}
-              />
-              <div className="pt-4 border-t border-border/50">
+              {showEngineSelector && (
+                <EngineSelector
+                  engines={engines}
+                  selectedEngineId={selectedEngineId}
+                  onEngineChange={handleEngineChange}
+                  isLoading={isLoadingEngines}
+                />
+              )}
+              <div className={showEngineSelector ? 'pt-4 border-t border-border/50' : ''}>
                 <VoiceSelector
                   voices={voices}
                   selectedVoice={selectedVoice}
