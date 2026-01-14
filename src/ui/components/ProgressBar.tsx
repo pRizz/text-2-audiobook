@@ -1,11 +1,12 @@
 import { Progress } from '../../tts/engine'
-import { formatBytes } from '../../utils/format'
+import { formatBytes, formatDuration } from '../../utils/format'
 
 interface ProgressBarProps {
   progress: Progress
+  elapsedTime?: number
 }
 
-export function ProgressBar({ progress }: ProgressBarProps) {
+export function ProgressBar({ progress, elapsedTime = 0 }: ProgressBarProps) {
   const { stageLabel, percent, currentChunk, totalChunks, stage, maybeAudioBytesHeld } = progress
 
   const stageColors: Record<string, string> = {
@@ -20,7 +21,14 @@ export function ProgressBar({ progress }: ProgressBarProps) {
     <div className="space-y-2 p-4 bg-gray-800 border border-gray-600 rounded-lg">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-300">{stageLabel}</span>
-        <span className="text-sm text-gray-400">{Math.round(percent)}%</span>
+        <div className="flex items-center gap-3">
+          {elapsedTime > 0 && (
+            <span className="text-sm text-gray-400 font-mono">
+              ({formatDuration(elapsedTime)})
+            </span>
+          )}
+          <span className="text-sm text-gray-400">{Math.round(percent)}%</span>
+        </div>
       </div>
 
       <div className="w-full h-3 bg-gray-700 rounded-full overflow-hidden">

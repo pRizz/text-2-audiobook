@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { PcmAudio } from '../../tts/engine'
-import { formatDuration, getDurationSeconds, pcmToWav } from '../../audio/pcm'
+import { getDurationSeconds, pcmToWav } from '../../audio/pcm'
 import { Chapter } from '../../chapters/parseChapters'
-import { formatBytes } from '../../utils/format'
+import { formatBytes, formatDuration } from '../../utils/format'
 
 interface OutputInfoProps {
   pcmAudio: PcmAudio | null

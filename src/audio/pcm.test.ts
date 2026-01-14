@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { concatenatePcmAudio, getDurationSeconds, formatDuration } from './pcm'
+import { concatenatePcmAudio, getDurationSeconds } from './pcm'
+import { formatDuration } from '../utils/format'
 import { PcmAudio } from '../tts/engine'
 
 describe('concatenatePcmAudio', () => {

@@ -43,8 +43,10 @@ function App() {
   const [isEncodingMp3, setIsEncodingMp3] = useState(false)
   const [isEncodingM4b, setIsEncodingM4b] = useState(false)
   const [m4bSupported, setM4bSupported] = useState(false)
+  const [elapsedTime, setElapsedTime] = useState(0)
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const startTimeRef = useRef<number | null>(null)
 
   // Initialize engines
   useEffect(() => {
@@ -73,6 +75,32 @@ function App() {
 
     initEngines()
   }, [])
+
+  // Track elapsed time during generation and encoding
+  useEffect(() => {
+    const isActive = isGenerating || isEncodingMp3 || isEncodingM4b
+
+    if (isActive && startTimeRef.current === null) {
+      // Start timing when any operation begins
+      startTimeRef.current = Date.now()
+      setElapsedTime(0)
+    } else if (!isActive && startTimeRef.current !== null) {
+      // Stop timing when all operations complete
+      startTimeRef.current = null
+      setElapsedTime(0)
+    }
+
+    if (!isActive || startTimeRef.current === null) return
+
+    const interval = setInterval(() => {
+      if (startTimeRef.current !== null) {
+        const elapsed = (Date.now() - startTimeRef.current) / 1000
+        setElapsedTime(elapsed)
+      }
+    }, 100) // Update every 100ms for smooth display
+
+    return () => clearInterval(interval)
+  }, [isGenerating, isEncodingMp3, isEncodingM4b])
 
   // Handle engine change
   const handleEngineChange = useCallback(async (engineId: string) => {
@@ -272,7 +300,7 @@ function App() {
             {/* Progress Bar */}
             {progress && (
               <div className="mt-6">
-                <ProgressBar progress={progress} />
+                <ProgressBar progress={progress} elapsedTime={elapsedTime} />
               </div>
             )}
 
