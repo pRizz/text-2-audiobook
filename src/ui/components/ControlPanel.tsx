@@ -7,6 +7,7 @@ interface ControlPanelProps {
   isEncodingMp3: boolean
   isEncodingM4b: boolean
   canGenerate: boolean
+  maybeDisabledReason?: string | null
   canDownload: boolean
   m4bSupported: boolean
 }
@@ -20,6 +21,7 @@ export function ControlPanel({
   isEncodingMp3,
   isEncodingM4b,
   canGenerate,
+  maybeDisabledReason,
   canDownload: _canDownload,
   m4bSupported: _m4bSupported,
 }: ControlPanelProps) {
@@ -57,7 +59,7 @@ export function ControlPanel({
           ? 'bg-primary text-primary-foreground shadow-lg glow-effect hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
           : 'bg-secondary text-secondary-foreground cursor-not-allowed opacity-50'
       }`}
-      title={!canGenerate ? 'Enter text and choose a voice' : ''}
+      title={!canGenerate ? maybeDisabledReason || 'Enter text and choose a voice' : ''}
     >
       <GearIcon />
       Generate Audiobook

@@ -51,7 +51,7 @@ export function getEngineById(id: string): TtsEngine | null {
 }
 
 export async function getDefaultEngine(): Promise<TtsEngine | null> {
-  // Prefer SAM as it's lightweight and always works
+  // Prefer the first available export-capable engine in priority order.
   for (const engine of allEngines) {
     if (engine.supportsExport) {
       let available = engineAvailability.get(engine.id)
@@ -67,12 +67,6 @@ export async function getDefaultEngine(): Promise<TtsEngine | null> {
         return engine
       }
     }
-  }
-
-  // Fall back to Web Speech API for preview
-  const webSpeech = allEngines.find((e) => e.id === 'webspeech')
-  if (webSpeech && (await webSpeech.isAvailable())) {
-    return webSpeech
   }
 
   return null

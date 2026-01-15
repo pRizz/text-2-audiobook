@@ -19,8 +19,13 @@ export function VoiceSelector({
   onRateChange: _onRateChange,
   pitch: _pitch,
   onPitchChange: _onPitchChange,
-  supportsExport: _supportsExport,
+  supportsExport,
 }: VoiceSelectorProps) {
+  const isVoiceSelectDisabled = voices.length === 0
+  const emptyLabel = supportsExport
+    ? 'No voices available'
+    : 'No export-capable engine available'
+
   // Generate a subtitle based on the selected voice
   const getVoiceSubtitle = (voice: Voice | null): string => {
     if (!voice) return 'Select a voice'
@@ -55,10 +60,13 @@ export function VoiceSelector({
                 const voice = voices.find((v) => v.id === e.target.value)
                 if (voice) onVoiceChange(voice)
               }}
-              className="w-full p-3 pr-10 bg-muted/50 border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none cursor-pointer"
+              disabled={isVoiceSelectDisabled}
+              className={`w-full p-3 pr-10 bg-muted/50 border border-border/50 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none ${
+                isVoiceSelectDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+              }`}
             >
               {voices.length === 0 ? (
-                <option value="">Loading voices...</option>
+                <option value="">{emptyLabel}</option>
               ) : (
                 voices.map((voice) => (
                   <option key={voice.id} value={voice.id}>
@@ -73,6 +81,13 @@ export function VoiceSelector({
           </div>
           {selectedVoice && (
             <p className="text-xs text-muted-foreground mt-2">{getVoiceSubtitle(selectedVoice)}</p>
+          )}
+          {!selectedVoice && voices.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              {supportsExport
+                ? 'This engine did not provide any voices.'
+                : 'Select a compatible browser/device to enable on-device audiobook export.'}
+            </p>
           )}
         </div>
       </div>
