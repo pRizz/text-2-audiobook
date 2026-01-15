@@ -268,7 +268,12 @@ function App() {
           setParts((prev) =>
             prev.map((p) =>
               p.part.partNumber === partNumber
-                ? { ...p, status: 'encoding-mp3' as const, progress: null }
+                ? {
+                    ...p,
+                    status: 'encoding-mp3' as const,
+                    progress: null,
+                    maybePcmBytes: audio.samples.byteLength,
+                  }
                 : p
             )
           )
@@ -605,6 +610,7 @@ function App() {
                   onDownloadMp3={handleDownloadMp3}
                   onDownloadM4b={handleDownloadM4b}
                   m4bSupported={m4bSupported}
+                  overallElapsedTime={elapsedTime}
                 />
               </div>
             )}
