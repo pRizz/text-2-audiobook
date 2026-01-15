@@ -16,9 +16,7 @@ interface TextInputProps {
 export function TextInput({
   value,
   onChange,
-  chapterMode: _chapterMode,
-  onChapterModeChange: _onChapterModeChange,
-  chapters: _chapters,
+  chapters,
 }: TextInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const stats = getTextStatistics(value)
@@ -87,9 +85,9 @@ export function TextInput({
 
       <div className="mt-12 text-center text-sm text-muted-foreground">
         <p>Supports TXT, PDF, EPUB imports</p>
-        {_chapters.length > 1 && (
+        {chapters.length > 1 && (
           <p className="mt-2 text-xs opacity-70">
-            {_chapters.length} chapters detected (lines starting with "# "). 
+            {chapters.length} chapters detected (lines starting with "# ").
             Chapter timing is estimated based on text position and may not be perfectly accurate.
           </p>
         )}
