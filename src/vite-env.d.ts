@@ -8,7 +8,7 @@ interface GPU {
   requestAdapter(): Promise<GPUAdapter | null>
 }
 
-interface GPUAdapter {}
+type GPUAdapter = object
 
 declare const __APP_VERSION__: string
 declare const __GIT_HASH__: string

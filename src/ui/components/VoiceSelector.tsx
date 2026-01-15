@@ -15,10 +15,6 @@ export function VoiceSelector({
   voices,
   selectedVoice,
   onVoiceChange,
-  rate: _rate,
-  onRateChange: _onRateChange,
-  pitch: _pitch,
-  onPitchChange: _onPitchChange,
   supportsExport,
 }: VoiceSelectorProps) {
   const isVoiceSelectDisabled = voices.length === 0

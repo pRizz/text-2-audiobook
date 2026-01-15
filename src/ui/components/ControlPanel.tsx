@@ -15,15 +15,11 @@ interface ControlPanelProps {
 export function ControlPanel({
   onGenerate,
   onCancel,
-  onDownloadMp3: _onDownloadMp3,
-  onDownloadM4b: _onDownloadM4b,
   isGenerating,
   isEncodingMp3,
   isEncodingM4b,
   canGenerate,
   maybeDisabledReason,
-  canDownload: _canDownload,
-  m4bSupported: _m4bSupported,
 }: ControlPanelProps) {
 
   if (isGenerating) {
