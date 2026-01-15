@@ -28,3 +28,12 @@ export function formatDuration(seconds: number): string {
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
+
+/**
+ * Format a byte rate into a human-friendly string (per second).
+ */
+export function formatBytesPerSecond(bytesPerSecond: number): string {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '0 B/s'
+
+  return `${formatBytes(bytesPerSecond)}/s`
+}
