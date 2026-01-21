@@ -13,7 +13,7 @@ This project fixes critical bugs in M4B audiobook export that currently render i
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Fix Silent Audio Bug** - Replace requestIdleCallback with synchronous encoding loop
+- [x] **Phase 1: Fix Silent Audio Bug** - Replace requestIdleCallback with synchronous encoding loop (Completed 2026-01-21)
 - [ ] **Phase 2: Fix File Size Bug** - Change AAC bitrate from 128kbps to 64kbps
 - [ ] **Phase 3: Add Chapter Support** - Implement QuickTime-compatible chapter markers via ffmpeg.wasm
 - [ ] **Phase 4: Unlock Engine Selector** - Remove hidden flag from TTS engine selector UI
@@ -36,11 +36,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 2. M4B file duration matches the MP3 export of the same text (within 1 second)
 3. No silent sections appear at any point in the exported M4B file
 
-**Plans**: TBD
+**Plans**: 1/1
 
 Plans:
 
-- [ ] 01-01: TBD
+- [x] 01-01: Replace idle-callback encoding with synchronous loop
 
 ---
 
@@ -179,14 +179,14 @@ Plans:
 **Execution Order:**
 Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
-| Phase                     | Plans Complete | Status      | Completed |
-| ------------------------- | -------------- | ----------- | --------- |
-| 1. Fix Silent Audio Bug   | 0/TBD          | Not started | -         |
-| 2. Fix File Size Bug      | 0/TBD          | Not started | -         |
-| 3. Add Chapter Support    | 0/TBD          | Not started | -         |
-| 4. Unlock Engine Selector | 0/TBD          | Not started | -         |
-| 5. Fix File Import        | 0/TBD          | Not started | -         |
-| 6. Add CDN Security       | 0/TBD          | Not started | -         |
+| Phase                     | Plans Complete | Status      | Completed  |
+| ------------------------- | -------------- | ----------- | ---------- |
+| 1. Fix Silent Audio Bug   | 1/1            | Complete    | 2026-01-21 |
+| 2. Fix File Size Bug      | 0/TBD          | Not started | -          |
+| 3. Add Chapter Support    | 0/TBD          | Not started | -          |
+| 4. Unlock Engine Selector | 0/TBD          | Not started | -          |
+| 5. Fix File Import        | 0/TBD          | Not started | -          |
+| 6. Add CDN Security       | 0/TBD          | Not started | -          |
 
 ---
 
