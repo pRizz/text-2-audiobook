@@ -4,16 +4,16 @@ import { createFile, type DataStream, type ISOFile, type IsoFileOptions } from '
 
 /**
  * M4B Encoder using WebCodecs AudioEncoder + mp4box.js
- * 
+ *
  * This implementation uses:
  * - Browser's native AudioEncoder API for AAC encoding (no WASM needed)
  * - mp4box.js for muxing into MP4 container with chapter metadata
- * 
+ *
  * Browser support:
  * - Chrome/Edge: Full support
  * - Firefox: Depends on OS (Windows/Linux good, macOS may vary)
  * - Safari: Limited support
- * 
+ *
  * Chapter Detection:
  * Chapters are detected by looking for lines starting with "# " in the text.
  * Chapter timing is calculated by mapping text positions to audio sample positions,
@@ -67,10 +67,10 @@ type AddSampleOptions = Parameters<ISOFile['addSample']>[2]
 
 /**
  * Encodes PCM audio to M4B format with chapter metadata
- * 
+ *
  * Chapter timing is calculated based on the actual audio duration.
  * Chapter boundaries are estimated by mapping text positions to audio sample positions.
- * 
+ *
  * @param audio - PCM audio data
  * @param chapters - Chapter metadata (with text positions)
  * @param onProgress - Progress callback (0-100)
@@ -84,29 +84,27 @@ export async function encodeToM4b(
   if (!(await isM4bSupported())) {
     throw new Error(
       'M4B encoding is not supported in this browser. ' +
-      'Please use Chrome/Edge or Firefox on Windows/Linux for best support.'
+        'Please use Chrome/Edge or Firefox on Windows/Linux for best support.'
     )
   }
 
   onProgress(5)
 
   // Step 1: Encode PCM to AAC using WebCodecs (includes resampling if needed)
-  const { chunks: encodedChunks, processedAudio, decoderConfig } = await encodePcmToAac(audio, (p) => {
+  const {
+    chunks: encodedChunks,
+    processedAudio,
+    decoderConfig,
+  } = await encodePcmToAac(audio, (p) => {
     onProgress(5 + p * 0.6) // 5-65%
   })
 
   onProgress(65)
 
   // Step 2: Mux AAC into MP4 container with chapters using mp4box.js
-  const m4bBlob = await muxAacToM4b(
-    encodedChunks,
-    processedAudio,
-    chapters,
-    decoderConfig,
-    (p) => {
-      onProgress(65 + p * 0.35) // 65-100%
-    }
-  )
+  const m4bBlob = await muxAacToM4b(encodedChunks, processedAudio, chapters, decoderConfig, (p) => {
+    onProgress(65 + p * 0.35) // 65-100%
+  })
 
   onProgress(100)
   return m4bBlob
@@ -115,10 +113,7 @@ export async function encodeToM4b(
 /**
  * Resamples PCM audio to a target sample rate using Web Audio API
  */
-async function resampleAudio(
-  audio: PcmAudio,
-  targetSampleRate: number
-): Promise<PcmAudio> {
+async function resampleAudio(audio: PcmAudio, targetSampleRate: number): Promise<PcmAudio> {
   if (audio.sampleRate === targetSampleRate) {
     return audio
   }
@@ -191,10 +186,19 @@ async function encodePcmToAac(
 
   return new Promise((resolve, reject) => {
     const chunks: EncodedChunk[] = []
-    const totalDuration = processedAudio.samples.length / processedAudio.sampleRate / processedAudio.channels
+    const totalDuration =
+      processedAudio.samples.length / processedAudio.sampleRate / processedAudio.channels
     let lastTimestamp = 0
-    let isFlushing = false
     let decoderConfig: AudioDecoderConfig | null = null
+    let hasSettled = false
+
+    const settle = (action: () => void) => {
+      if (hasSettled) {
+        return
+      }
+      hasSettled = true
+      action()
+    }
 
     // Configure AudioEncoder for AAC
     const config: AudioEncoderConfig = {
@@ -212,14 +216,14 @@ async function encodePcmToAac(
         }
         const data = new Uint8Array(chunk.byteLength)
         chunk.copyTo(data)
-        
+
         // Calculate duration from timestamp difference
         const duration = chunk.timestamp - lastTimestamp
         lastTimestamp = chunk.timestamp
 
         chunks.push({
           timestamp: chunk.timestamp,
-          duration: duration || (1000000 / processedAudio.sampleRate), // fallback to sample duration
+          duration: duration || 1000000 / processedAudio.sampleRate, // fallback to sample duration
           data,
           isKeyframe: chunk.type === 'key',
         })
@@ -234,8 +238,9 @@ async function encodePcmToAac(
         }
       },
       error: (error) => {
-        isFlushing = true // Stop any pending encode operations
-        reject(new Error(`AAC encoding failed: ${error.message}`))
+        settle(() => {
+          reject(new Error(`AAC encoding failed: ${error.message}`))
+        })
       },
     })
 
@@ -246,69 +251,57 @@ async function encodePcmToAac(
     let offset = 0
     let sampleTimestamp = 0
 
-    const processNextChunk = () => {
-      // Prevent encoding after flush has been called
-      if (isFlushing) {
-        return
-      }
+    const encodeAllChunks = async () => {
+      try {
+        while (offset < processedAudio.samples.length) {
+          if (hasSettled) {
+            return
+          }
 
-      if (offset >= processedAudio.samples.length) {
-        isFlushing = true
-        encoder.flush()
-          .then(() => {
-            onProgress(100)
-            resolve({ chunks, processedAudio, decoderConfig })
+          const end = Math.min(offset + chunkSize, processedAudio.samples.length)
+          const chunkSamples = processedAudio.samples.slice(offset, end)
+          const frameCount = chunkSamples.length / processedAudio.channels
+
+          // Create AudioData from PCM samples
+          // Note: AudioData expects planar format for multi-channel
+          const audioDataBuffer = chunkSamples.buffer
+          const audioData = new AudioData({
+            format: 'f32-planar',
+            sampleRate: processedAudio.sampleRate,
+            numberOfFrames: frameCount,
+            numberOfChannels: processedAudio.channels,
+            timestamp: sampleTimestamp * 1_000_000, // microseconds
+            data: audioDataBuffer,
           })
-          .catch((error) => {
-            reject(error)
-          })
-        return
-      }
 
-      const end = Math.min(offset + chunkSize, processedAudio.samples.length)
-      const chunkSamples = processedAudio.samples.slice(offset, end)
-      const frameCount = chunkSamples.length / processedAudio.channels
+          try {
+            encoder.encode(audioData)
+          } finally {
+            audioData.close()
+          }
 
-      // Create AudioData from PCM samples
-      // Note: AudioData expects planar format for multi-channel
-      let audioDataBuffer: ArrayBuffer
-      if (processedAudio.channels === 1) {
-        audioDataBuffer = chunkSamples.buffer
-      } else {
-        // Convert interleaved to planar (not needed for mono, but for future stereo support)
-        audioDataBuffer = chunkSamples.buffer
-      }
+          offset = end
+          sampleTimestamp += frameCount
+        }
 
-      const audioData = new AudioData({
-        format: 'f32-planar',
-        sampleRate: processedAudio.sampleRate,
-        numberOfFrames: frameCount,
-        numberOfChannels: processedAudio.channels,
-        timestamp: sampleTimestamp * 1_000_000, // microseconds
-        data: audioDataBuffer,
-      })
+        if (hasSettled) {
+          return
+        }
 
-      // Check again before encoding (in case flush was called while we were preparing the data)
-      if (isFlushing) {
-        audioData.close()
-        return
-      }
-
-      encoder.encode(audioData)
-      audioData.close()
-
-      offset = end
-      sampleTimestamp += frameCount
-
-      // Process next chunk asynchronously
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(processNextChunk, { timeout: 1000 })
-      } else {
-        setTimeout(processNextChunk, 0)
+        await encoder.flush()
+        settle(() => {
+          onProgress(100)
+          resolve({ chunks, processedAudio, decoderConfig })
+        })
+      } catch (error) {
+        settle(() => {
+          const message = error instanceof Error ? error.message : String(error)
+          reject(new Error(`AAC encoding failed: ${message}`))
+        })
       }
     }
 
-    processNextChunk()
+    encodeAllChunks()
   })
 }
 
@@ -351,7 +344,7 @@ async function muxAacToM4b(
         channel_count: audio.channels,
         samplesize: 16,
       }
-      
+
       const trackId = file.addTrack(trackOptions)
 
       onProgress(10)
@@ -360,8 +353,8 @@ async function muxAacToM4b(
       for (let i = 0; i < encodedChunks.length; i++) {
         const chunk = encodedChunks[i]
         const prevTimestamp = i > 0 ? encodedChunks[i - 1].timestamp : 0
-        const duration = chunk.duration || (chunk.timestamp - prevTimestamp)
-        
+        const duration = chunk.duration || chunk.timestamp - prevTimestamp
+
         // Convert duration to timescale units
         const durationInTimescale = Math.floor(duration / (1_000_000 / timescale))
         const dtsInTimescale = Math.floor(chunk.timestamp / (1_000_000 / timescale))
@@ -386,7 +379,9 @@ async function muxAacToM4b(
       // Chapters can be added in a future update using proper MP4 box structure
       // The file will still be a valid M4B file, just without chapter markers
       if (chapters.length > 1) {
-        console.info(`Detected ${chapters.length} chapters, but chapter metadata not yet implemented in mp4box.js muxer`)
+        console.info(
+          `Detected ${chapters.length} chapters, but chapter metadata not yet implemented in mp4box.js muxer`
+        )
       }
 
       onProgress(70)
@@ -399,26 +394,30 @@ async function muxAacToM4b(
         // Get the DataStream and write the file to it
         const dataStream: DataStream = file.getBuffer()
         file.write(dataStream)
-        
+
         // Extract the ArrayBuffer from DataStream
         const streamBuffer = dataStream.buffer
         const position = dataStream.getPosition()
         const arrayBuffer = streamBuffer.slice(0, position)
-        
+
         if (!arrayBuffer || arrayBuffer.byteLength === 0) {
           reject(new Error('No MP4 data generated: getBuffer returned empty buffer'))
           return
         }
 
         onProgress(95)
-        
+
         // Create blob from the complete file
         const blob = new Blob([arrayBuffer], { type: 'audio/mp4' })
-        
+
         onProgress(100)
         resolve(blob)
       } catch (error) {
-        reject(new Error(`MP4 buffer retrieval failed: ${error instanceof Error ? error.message : String(error)}`))
+        reject(
+          new Error(
+            `MP4 buffer retrieval failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+        )
       }
     } catch (error) {
       reject(error)
